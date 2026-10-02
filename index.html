@@ -832,6 +832,66 @@ function ensureShape(l){l.fields=l.fields||{};l.fields.items=l.fields.items||{};
 const emptyNote=()=>({strokes:[],undo:[],redo:[],h:0});
 function getField(k){return HEAD_KEYS.has(k)?(cur.fields[k]||''):(cur.fields.items[k]||'');}
 function setField(k,v){if(HEAD_KEYS.has(k))cur.fields[k]=v;else cur.fields.items[k]=v;}
+/* ---------- 주소 → 과밀억제권역 판정 (수도권정비계획법 시행령 별표1, 2017.6.20. 개정 기준)
+   v: '과밀'|'비과밀'|'' , zone: over 과밀 / cap 수도권(과밀 밖) / out 수도권 밖·수도권 인구감소지역(조특법 §6① 2026년 이후 창업은 같은 감면율)
+   chk: 동·지번까지 봐야 하는 곳 → 자동으로 고르지 않음. 인천은 2026.7.1. 개편(제물포구·영종구·검단구) 이름도 받음 */
+function crowdGuess(addr){
+  const a=String(addr||'').replace(/[(),·\[\]]/g,' ').replace(/\s+/g,' ').trim();if(a.length<2)return null;
+  // 법정동·읍·면 토큰만 모음(아파트 '103동'·'가동' 같은 건물 동은 뺌)
+  const T=a.split(' '),tok=re=>T.find(t=>re.test(t)),has=re=>re.test(a);
+  const dongs=T.filter(t=>/^[가-힣][가-힣\d]*(동|읍|면|리|\d가)$/.test(t)&&!/^[가나다라]동$/.test(t)).join(' '),dn=re=>re.test(dongs);
+  const ok=(v,zone,why)=>({v,zone,why,chk:false}),chk=(why,zone)=>({v:'',zone:zone||'',why,chk:true});
+  if(has(/^서울|서울특별시|서울시/))return ok('과밀','over','서울특별시 전역');
+  if(has(/^(부산|대구|대전|울산|세종|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)/)||has(/광주광역시/))return ok('비과밀','out','수도권 밖');
+  const gu=tok(/^(중구|동구|서구|미추홀구|연수구|남동구|부평구|계양구|제물포구|영종구|검단구|강화군|옹진군)$/);
+  if(has(/인천/)||(gu&&!/^(중구|동구|서구)$/.test(gu))){
+    if(/강화|옹진/.test(gu||'')||has(/강화군|옹진군/))return ok('비과밀','out','인천 강화·옹진군 — 과밀 아님, 수도권 인구감소지역');
+    if(has(/송도/))return ok('비과밀','cap','인천경제자유구역(송도)');
+    if(has(/청라(?!면)/))return ok('비과밀','cap','인천경제자유구역(청라)');
+    if(gu==='영종구'||has(/영종|용유/)||dn(/운서동|중산동|운남동|운북동|을왕동|남북동|덕교동|무의동/))return ok('비과밀','cap','인천경제자유구역(영종·용유·무의, 해제된 곳 포함)');
+    const GD=/대곡동|불로|마전동|금곡동|오류동|왕길동|당하동|원당동|검단동|오류왕길|아라동/;
+    if(gu==='제물포구'||gu==='동구'||gu==='미추홀구'||gu==='부평구'||gu==='계양구')return ok('과밀','over',`인천 ${gu}`);
+    if(gu==='검단구'||gu==='서구'){
+      if(dn(GD))return ok('비과밀','cap','인천 서구 검단 지역(대곡·불로·마전·금곡·오류·왕길·당하·원당동)');
+      if(gu==='검단구')return chk('검단구는 대곡·불로·마전·금곡·오류·왕길·당하·원당동이면 과밀 아님 — 법정동을 적어 주세요');
+      if(dn(/경서동|연희동|원창동/))return chk('경서·연희·원창동은 청라 경제자유구역에 걸쳐 있어 지번 확인이 필요해요');
+      if(dongs)return ok('과밀','over','인천 서구(청라·검단 외)');
+      return chk('인천 서구는 청라·검단이면 과밀이 아니에요 — 법정동을 적어 주세요');}
+    if(gu==='남동구'){
+      if(dn(/고잔|남촌|논현/))return chk('고잔·남촌·논현동은 남동국가산업단지 안이면 과밀이 아니에요 — 지번 확인 필요');
+      if(dongs)return ok('과밀','over','인천 남동구(남동국가산업단지 외)');
+      return chk('남동구는 남동국가산업단지 안이면 과밀이 아니에요 — 법정동을 적어 주세요');}
+    if(gu==='연수구'){if(dongs)return ok('과밀','over','인천 연수구(송도 외)');return chk('연수구는 송도면 과밀이 아니에요 — 법정동을 적어 주세요');}
+    if(gu==='중구'){if(dongs)return ok('과밀','over','인천 중구 내륙');return chk('인천 중구는 영종이면 과밀이 아니에요 — 법정동을 적어 주세요');}
+    return chk('인천은 구·동에 따라 달라요 — 구와 법정동을 적어 주세요');
+  }
+  const DIST={수원:/^(장안구|권선구|팔달구|영통구)$/,성남:/^(수정구|중원구|분당구)$/,고양:/^(덕양구|일산동구|일산서구)$/,안양:/^(만안구|동안구)$/,부천:/^(원미구|소사구|오정구)$/,
+    용인:/^(처인구|기흥구|수지구)$/,안산:/^(상록구|단원구)$/,화성:/^(만세구|효행구|병점구|동탄구)$/};
+  const GG=['남양주','의정부','동두천','수원','성남','고양','용인','부천','안산','안양','화성','평택','시흥','파주','김포','광명','광주','군포','하남','오산','이천','안성','의왕','양주','구리','포천','여주','과천','가평','양평','연천'];
+  let city=GG.find(c=>T.some(t=>t===c||t===c+'시'||t===c+'군'))||Object.keys(DIST).find(c=>T.some(t=>DIST[c].test(t)));
+  if(!city&&has(/^경기/))return chk('경기도 시·군 이름을 적어 주세요');
+  if(!city)return null;
+  if(city==='광주'){const gg=has(/경기|광주시/),gj=!gg&&!!tok(/^(광산구|북구|남구|동구|서구)$/);
+    return ok('비과밀',gg?'cap':gj?'out':'',gg?'경기 광주시(자연보전권역)':gj?'광주광역시(수도권 밖)':'광주 — 과밀 아님');}
+  if(['의정부','구리','하남','고양','수원','성남','안양','부천','광명','과천','의왕','군포'].includes(city))return ok('과밀','over',`${city}시 전역`);
+  if(city==='남양주'){
+    if(dn(/호평|평내|금곡|일패|이패|삼패|가운|수석|지금|도농/))return ok('과밀','over','남양주 과밀 지역(호평·평내·금곡·일패·이패·삼패·가운·수석·지금·도농동)');
+    if(dn(/별내|와부|덕소|진접|진전|퇴계원|진건|오남|화도|수동|조안/))return ok('비과밀','cap','남양주 성장관리·자연보전 지역');
+    return chk('남양주는 동·읍·면에 따라 과밀 여부가 달라요 — 법정동을 적어 주세요');}
+  if(city==='시흥'){
+    if(dn(/정왕|배곧|거북섬|시화/)||has(/시화|거북섬|배곧/))return chk('시흥 정왕·배곧 일대는 반월특수지역(해제지역 포함)이면 과밀이 아니에요 — 지번 확인 필요');
+    if(dongs)return ok('과밀','over','시흥시(반월특수지역 외)');
+    return chk('시흥은 반월특수지역(정왕동 일대)이면 과밀이 아니에요 — 법정동을 적어 주세요');}
+  if(city==='가평'||city==='연천')return ok('비과밀','out',`${city}군 — 과밀 아님, 수도권 인구감소지역`);
+  return ok('비과밀','cap',`${city}${city==='양평'?'군':'시'} — 과밀억제권역 밖`);
+}
+function crowdAuto(){ // 주소가 바뀐 뒤 한 번 — 손으로 고른 값은 건드리지 않음
+  if(!cur)return'';const f=cur.fields,g=crowdGuess(f.address),hand=f.overcrowd&&f.crowdSet!=='auto';
+  if(hand)return g&&!g.chk&&g.v!==f.overcrowd?`주소로는 '${g.v}'(${g.why})로 보여요. 지금은 '${f.overcrowd}'로 골라져 있어요.`:'';
+  const prev=f.overcrowd||'',nv=g&&!g.chk?g.v:'';f.overcrowd=nv;f.crowdSet=nv?'auto':'';
+  if(!g)return prev?'주소로 과밀 여부를 정할 수 없어 비워 뒀어요.':'';
+  return g.chk?`과밀 여부 확인 필요: ${g.why}`:nv!==prev?`주소 기준 '${nv}' 자동 선택 (${g.why})`:'';
+}
 function disp(l){
   const F=l.final,f=l.fields||{};
   if(F)return{...F.fields,items:F.items||{},checks:F.checks||{},consult:F.consult||'',requests:F.requests||'',todos:F.todos||[],summary:F.summary||'',tags:F.tags||[],done:true};
@@ -1083,13 +1143,15 @@ $('#panel').addEventListener('click',e=>{
     if(!keep)a=a.includes(o)?a.filter(x=>x!==o):(g.m?[...a,o]:[o]);
     for(let j=0;j<i;j++)if(!s.g[j])s.g[j]=[];s.g[i]=a;setField(k,selText(k,s));entitySync(k,i);stageSync(k,i);rightsSync(k,i,o);loanSync(k,i);ageSync(k,i);}
   else if(y){const k=y.dataset.ck;cur.checks[k]=cur.checks[k]===y.dataset.v?'':y.dataset.v;}
-  else if(cr){const v=cr.dataset.crowd;cur.fields.overcrowd=cur.fields.overcrowd===v?'':v;}
+  else if(cr){const v=cr.dataset.crowd;cur.fields.overcrowd=cur.fields.overcrowd===v?'':v;cur.fields.crowdSet='hand';}
   else return;
   syncPanel();markDirty('log');refreshSteps();
 });
 document.querySelector('#view-sheet .shead').addEventListener('click',e=>{ // 헤더 둘째 줄 과밀/비과밀
   const cr=e.target.closest('[data-crowd]');if(!cr||!cur)return;const v=cr.dataset.crowd;
-  cur.fields.overcrowd=cur.fields.overcrowd===v?'':v;syncPanel();markDirty('log');refreshSteps();});
+  cur.fields.overcrowd=cur.fields.overcrowd===v?'':v;cur.fields.crowdSet='hand';syncPanel();markDirty('log');refreshSteps();});
+$('#view-sheet').addEventListener('change',e=>{ // 주소 입력을 마치면(칸을 벗어나면) 과밀 여부 자동 판정
+  if(!cur||e.target.dataset.key!=='address')return;const m=crowdAuto();syncPanel();markDirty('log');refreshSteps();if(m)toast(m);});
 $('#view-sheet').addEventListener('input',e=>{
   const t=e.target;if(!cur)return;
   if(t.dataset.key)setField(t.dataset.key,t.value);
@@ -2124,8 +2186,10 @@ function rpData(l){
       '사업자등록은 사업을 시작한 날부터 20일 안에 해야 하고, 사업을 시작하기 전에도 미리 신청할 수 있습니다. 인테리어·집기처럼 큰 지출 전에 등록해 두면 그 부가가치세를 공제받을 수 있고, 등록 전에 산 것도 그 과세기간이 끝난 뒤 20일 안에 등록을 신청하면 공제됩니다. 등록 전 지출은 대표님 주민등록번호로 세금계산서를 받아 두셔야 합니다.'
         +(corp?' 법인은 설립등기를 마친 뒤 법인 명의로 사업자등록을 하므로, 설립 전에 쓰는 비용을 법인으로 넘기는 방법도 미리 정해 두는 것이 좋습니다.':''),
       '사업자등록 단계부터 감면과 공제를 받을 수 있게 준비해 드리겠습니다.');
-    const ad=d.address||'',ocw=l.fields.overcrowd||'',zone=ocw==='과밀'?'over':ad.trim()?(/서울|경기|인천/.test(ad)?(ocw==='비과밀'?'cap':''):'out'):'';
-    const R={over:[50,0,'수도권과밀억제권역'],cap:[75,25,'수도권(과밀억제권역 밖)'],out:[100,50,'수도권 밖']}[zone],yth=ae.st==='youth'||ae.st==='sure',nyth=ae.st==='no';
+    const ad=d.address||'',ocw=l.fields.overcrowd||'',cg=crowdGuess(ad),gz=cg&&cg.zone||'', // 주소 판정 구간 우선, 손으로 고른 과밀 여부와 어긋나면 고른 값을 따름
+      zone=ocw==='과밀'?'over':ocw==='비과밀'?(gz&&gz!=='over'?gz:ad.trim()&&!/서울|경기|인천/.test(ad)?'out':'cap'):gz==='out'?'out':ad.trim()&&!cg&&!/서울|경기|인천/.test(ad)?'out':'';
+    const pop=zone==='out'&&cg&&/인구감소/.test(cg.why);
+    const R={over:[50,0,'수도권과밀억제권역'],cap:[75,25,'수도권(과밀억제권역 밖)'],out:[100,50,pop?'수도권 인구감소지역':'수도권 밖']}[zone],yth=ae.st==='youth'||ae.st==='sure',nyth=ae.st==='no';
     const NO=['소매','도소매','임대·렌탈'],bt=G('bizType',1),bad=bt.length&&bt.every(v=>NO.includes(v))||false;
     let now=R?(yth?`예정 사업장이 ${R[2]}이고 청년 창업에 해당해 예상 감면율은 ${R[0]}%입니다.`:nyth?`예정 사업장이 ${R[2]}이라 예상 감면율은 ${R[1]}%이고, 연 수입금액이 1억 400만 원 이하인 해에는 ${R[0]}%입니다.`
         :`예정 사업장이 ${R[2]}이라 청년 창업이면 ${R[0]}%, 아니면 ${R[1]}%를 감면받습니다.`):'창업 감면율은 사업장 위치에 따라 달라지므로 예정지를 정하기 전에 확인하는 것이 좋습니다.';
@@ -2833,7 +2897,7 @@ function pickCal(it){
     g.forEach((grp,i)=>{if((s.g[i]||[]).length)return;const o=grp.o.find(x=>bt.includes(x)||x.includes(bt));if(o){for(let j=0;j<i;j++)if(!s.g[j])s.g[j]=[];s.g[i]=[o];}});
     setField('bizType',selText('bizType',s));}
   if(it.id)cur.fields.calId=String(it.id);
-  closeCal();syncPanel();markDirty('log');refreshSteps();toast('일정 내용을 넣었어요.');
+  const cm=crowdAuto();closeCal();syncPanel();markDirty('log');refreshSteps();toast('일정 내용을 넣었어요.'+(cm?' '+cm:''));
 }
 $('#sCal').addEventListener('click',openCal);
 $('#cpClose').addEventListener('click',closeCal);
