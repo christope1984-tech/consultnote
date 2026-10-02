@@ -409,7 +409,7 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
       <h1><span id="listTitle">상담일지</span><small id="listCount"></small></h1>
       <button class="tool" id="btnSet" aria-label="설정"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button>
       <button class="btn primary" id="btnNew">새 상담</button>
-      <button class="btn" id="trBack" hidden>목록으로</button>
+      <button class="btn" id="trBack" hidden>설정으로</button>
     </header>
     <div class="selbar" id="selBar" hidden>
       <button class="btn" id="selX">취소</button><b id="selN">0개 선택</b><button class="btn" id="selAll">전체 선택</button>
@@ -434,7 +434,6 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
       <div class="count" id="rowsCount"></div>
       <div class="rows" id="rows"><div class="empty">불러오는 중…</div></div>
       <p class="trashNote" id="trashNote" hidden>휴지통에 넣은 일지는 30일이 지나면 자동으로 지워져요. 눌러서 고른 뒤 복구하거나 바로 영구 삭제할 수 있어요.</p>
-      <button class="trashLink" id="trashOpen" hidden></button>
     </div></div>
   </section>
 
@@ -553,6 +552,11 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
         <p class="note-s" style="margin:0 0 12px">일지는 이 태블릿 브라우저에만 저장돼요. 브라우저 데이터를 지우거나 기기를 바꾸면 사라지니, 백업 파일을 주기적으로 저장해 두세요.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="stBackup">백업 파일 저장</button><button class="btn" id="stRestore">백업에서 불러오기</button><button class="btn" id="btnCsv">CSV로 내보내기</button></div>
         <input type="file" id="stFile" accept=".json,application/json" hidden>
+      </div>
+      <div class="card" id="stTrash"><h3>휴지통</h3>
+        <p id="stTrashInfo" style="margin:0 0 12px;font-size:14.5px"></p>
+        <p class="note-s" style="margin:0 0 12px">목록에서 일지를 길게 눌러 고른 뒤 휴지통으로 옮길 수 있어요. 휴지통에 넣은 일지는 30일이 지나면 자동으로 지워지고, 그 전에는 복구할 수 있어요.</p>
+        <button class="btn" id="trashOpen">휴지통 열기</button>
       </div>
       <div class="card" id="stApp"><h3>앱 설치</h3>
         <p class="instWarn"><b>꼭 크롬(Chrome)에서 설치하세요.</b> 일지는 설치한 브라우저 안에 저장돼서, 삼성 인터넷이나 카카오톡 안에서 열린 화면으로 설치하면 크롬에 쓰던 일지가 안 보이고 앱으로도 제대로 실행되지 않아요.</p>
@@ -2709,7 +2713,6 @@ function applyListTitle(){const t=listTitle();$('#listTitle').textContent=t;docu
 function renderList(){
   if(listMode==='trash')return renderTrash();
   applyListTitle();$('#btnNew').hidden=false;$('#btnSet').hidden=false;$('#trBack').hidden=true;$('.filters').hidden=false;$('#trashNote').hidden=true;
-  const tl=$('#trashOpen');tl.hidden=!trash.size||!loaded;tl.textContent=`휴지통 ${trash.size}건 · 30일 지나면 자동 삭제`;
   updateBanner();$('.ask').hidden=!settings.apiKey;if(!settings.apiKey)$('#askOut').hidden=true;
   const all=[...logs.values()].sort((a,b)=>(b.sortKey||'').localeCompare(a.sortKey||''));
   const months=[...new Set(all.map(l=>(disp(l).visitDate||'').slice(0,7)).filter(m=>/^\d{4}-\d{2}$/.test(m)))];
@@ -2741,7 +2744,7 @@ let shownIds=[];
 function renderTrash(){
   $('#listTitle').textContent='휴지통';$('#listCount').textContent=trash.size?`${trash.size}건`:'';
   $('#btnNew').hidden=true;$('#btnSet').hidden=true;$('#trBack').hidden=false;$('#banner').hidden=true;$('.filters').hidden=true;$('.ask').hidden=true;$('#askOut').hidden=true;
-  $('#trashOpen').hidden=true;$('#trashNote').hidden=false;$('#rowsCount').textContent='';
+  $('#trashNote').hidden=false;$('#rowsCount').textContent='';
   if(!sel)sel=new Set();
   const all=[...trash.values()].sort((a,b)=>(b.trashedAt||0)-(a.trashedAt||0));shownIds=all.map(l=>l.id);selUI();
   const box=$('#rows');
@@ -2787,13 +2790,14 @@ $('#selAll').addEventListener('click',()=>{if(!sel)return;const allOn=shownIds.l
 $('#selTrash').addEventListener('click',async()=>{if(!sel||!sel.size)return;const ids=[...sel];await dropCur(ids);
   try{await Store.setTrash(ids,true);sel=null;renderList();toast(`${ids.length}건을 휴지통으로 옮겼어요. 30일 뒤 자동으로 지워져요.`);}catch{toast('휴지통으로 옮기지 못했어요.');}});
 $('#selRestore').addEventListener('click',async()=>{if(!sel||!sel.size)return;const ids=[...sel];
-  try{await Store.setTrash(ids,false);sel=new Set();if(!trash.size){listMode='list';sel=null;}renderList();toast(`${ids.length}건을 복구했어요.`);}catch{toast('복구하지 못했어요.');}});
+  try{await Store.setTrash(ids,false);sel=new Set();toast(`${ids.length}건을 복구했어요.`);if(!trash.size)leaveTrash();else renderList();}catch{toast('복구하지 못했어요.');}});
 $('#selPurge').addEventListener('click',async e=>{const b=e.currentTarget;if(!sel||!sel.size)return;
   if(!b.dataset.arm){b.dataset.arm='1';b.textContent='한 번 더 누르면 영구 삭제';setTimeout(()=>{if(b.dataset.arm){delete b.dataset.arm;b.textContent='영구 삭제';}},3500);return;}
   delete b.dataset.arm;b.textContent='영구 삭제';const ids=[...sel];await dropCur(ids);
-  try{await Store.removeMany(ids);sel=new Set();if(!trash.size){listMode='list';sel=null;}renderList();toast(`${ids.length}건을 완전히 지웠어요.`);}catch{toast('지우지 못했어요.');}});
-$('#trashOpen').addEventListener('click',()=>{listMode='trash';sel=new Set();Store.purgeOld().catch(()=>{});renderList();$('#view-list .scroll').scrollTop=0;});
-$('#trBack').addEventListener('click',()=>{listMode='list';sel=null;renderList();});
+  try{await Store.removeMany(ids);sel=new Set();toast(`${ids.length}건을 완전히 지웠어요.`);if(!trash.size)leaveTrash();else renderList();}catch{toast('지우지 못했어요.');}});
+$('#trashOpen').addEventListener('click',async()=>{await Store.purgeOld().catch(()=>{});listMode='trash';sel=new Set();show('list');renderList();$('#view-list .scroll').scrollTop=0;});
+function leaveTrash(){listMode='list';sel=null;renderList();const f=settingsFrom;openSettings().then(()=>{settingsFrom=f;});} // 휴지통은 설정에서 열었으니 설정으로
+$('#trBack').addEventListener('click',leaveTrash);
 $('#q').addEventListener('input',e=>{listFilter.q=e.target.value;renderList();});
 $('#fMonth').addEventListener('change',e=>{listFilter.month=e.target.value;renderList();});
 $('#fStatus').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;listFilter.status=t.dataset.v;
@@ -2884,11 +2888,12 @@ async function openSettings(){settingsFrom=!$('#view-sheet').hidden&&cur?'sheet'
   $('#stLine').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===(settings.lineGap||'auto'))));
   document.querySelectorAll('.seg[data-set]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===settings[g.dataset.set]))));
   show('settings');
-  let info=`저장된 일지 ${logs.size}건`+(trash.size?` (휴지통 ${trash.size}건 별도)`:'');
+  let info=`저장된 일지 ${logs.size}건`;
   try{const e=await navigator.storage.estimate();info+=` / 사용 ${(e.usage/1048576).toFixed(1)}MB`;}catch{}
   try{const p=await navigator.storage.persisted();info+=p?' / 자동 삭제 방지 켜짐':' / 자동 삭제 방지 꺼짐 (홈 화면 앱으로 설치하면 켜져요)';}catch{}
   info+='\n마지막 백업: '+(settings.lastBackup?new Date(settings.lastBackup).toLocaleString('ko-KR'):'없음');
   $('#stInfo').textContent=info;
+  $('#stTrashInfo').textContent=trash.size?`휴지통에 ${trash.size}건 있어요.`:'휴지통이 비어 있어요.';$('#trashOpen').disabled=!trash.size;
   const bw=$('#stBkWarn'),lb=settings.lastBackup;
   bw.textContent=!lb?(logs.size?'아직 백업한 적이 없어요. 아래 \'백업 파일 저장\'을 한 번 눌러 두세요.':''):Date.now()-lb>14*864e5?'마지막 백업 후 2주가 지났어요. 백업 파일을 새로 저장해 두세요.':'';
   bw.hidden=!bw.textContent;
