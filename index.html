@@ -79,6 +79,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .status.err{color:var(--neg)}
 
 /* ---------- 상담 화면 ---------- */
+.sbar{flex:none}
 .shead{display:flex;align-items:center;gap:12px;padding:8px 16px 10px 6px;background:var(--surface);border-bottom:1px solid var(--line)}
 .shead input{min-width:0;min-height:52px;padding:0 2px;border:0;border-bottom:1.5px solid var(--line);border-radius:0;background:transparent}
 .shead input:focus{outline:none;border-bottom-color:var(--accent)}
@@ -163,6 +164,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 .seamMore{flex:none;display:flex;align-items:center;gap:6px;height:44px;padding:0 18px;border:0;border-left:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer}
 .seamMore svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .work.collapsed .seamMore,.work.full .seamMore{display:none}
+.work.big .panel{flex:7 1 0}
+.work.big .note{flex:3 1 0}
 .work.full .panel{flex:1 1 0}
 .work.full .note{flex-grow:0;visibility:hidden}
 .work.full .seam{color:var(--text);font-weight:600}
@@ -202,6 +205,9 @@ button,input,textarea,select{font:inherit;color:inherit}
 .rt[data-color][aria-pressed="true"] .sw{box-shadow:0 0 0 2px var(--rail),0 0 0 4px var(--accent)}
 .rt .wd{border-radius:50%;background:currentColor}
 .rsep{width:22px;height:1px;margin:4px 0;background:var(--line);flex:none}
+/* 필기 칸이 낮을 때(체크리스트 70% 등) 펜 도구를 두 줄로 */
+.note{container-type:size}
+@container (max-height:470px){.rail{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,auto);justify-items:center;align-items:center;gap:1px 2px}.rsep{margin:4px 10px}}
 
 @media (max-width:720px){
   .shead{flex-wrap:wrap;gap:4px 10px}
@@ -390,6 +396,11 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
 
   <!-- 상담 (체크 + 필기) -->
   <section class="view" id="view-sheet" hidden>
+    <header class="bar sbar">
+      <h1><span class="appTitle">상담일지</span></h1>
+      <button class="tool" id="sSet" aria-label="설정"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button>
+      <button class="btn primary" id="sNew">새 상담</button>
+    </header>
     <header class="shead">
       <button class="tool" id="sBack" aria-label="목록으로"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
       <input class="h-company" data-key="company" placeholder="업체명" aria-label="업체명" autocomplete="off" spellcheck="false">
@@ -400,7 +411,7 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
     </header>
     <div class="work" id="work">
       <div class="panel" id="panel"></div>
-      <div class="seamBar"><button class="seam" id="seam" aria-expanded="true" aria-controls="panel"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg><span id="seamText">체크리스트 접기</span></button><button class="seamMore" id="seamMore" aria-controls="panel"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><span>화면 가득 펼치기</span></button></div>
+      <div class="seamBar"><button class="seam" id="seam" aria-expanded="true" aria-controls="panel"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg><span id="seamText">체크리스트 접기</span></button><button class="seamMore" id="seamMore" aria-controls="panel"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><span id="seamMoreText">크게 펼치기 (70%)</span></button></div>
       <div class="note" id="note">
         <div class="noteScroll" id="noteScroll"><div class="paper" id="paper"><p class="hint" id="noteHint">S펜으로 바로 쓰면 돼요. 손가락으로 밀면 위아래로 움직이고, 펜을 띄운 채 펜 버튼을 한 번 누르면 지우개, 한 번 더 누르면 펜이에요.</p></div></div>
         <canvas id="ink" aria-hidden="true"></canvas>
@@ -1244,21 +1255,24 @@ function refreshSteps(){
     if(k!=='org')b.querySelector('i').textContent=st[k]?'✓':b.dataset.n;});
   document.querySelectorAll('.link').forEach(l=>l.classList.toggle('done',st[l.dataset.after]));
   const nc=$('#nCheck');if(nc)nc.textContent=n+'/'+CHECK_KEYS.length;
-  $('#seamText').textContent=full?'체크리스트 줄이기 (필기 칸 다시 보기)':hoMode?'필기 칸 원래대로':collapsed?`체크리스트 펼치기 (항목 ${n}/${CHECK_KEYS.length} 입력)`:'체크리스트 접기';
+  $('#seamText').textContent=full?'필기 칸 다시 보기 (체크리스트 70%)':hoMode?'필기 칸 원래대로':big?'체크리스트 줄이기':collapsed?`체크리스트 펼치기 (항목 ${n}/${CHECK_KEYS.length} 입력)`:'체크리스트 접기';
+  $('#seamMoreText').textContent=big?'화면 가득 펼치기':'크게 펼치기 (70%)';
   $('#noteHint').hidden=!!(note&&note.strokes.length);
 }
 let layoutBusy=false,layoutT=0; // 칸 크기 전환 중엔 캔버스 크기 맞춤을 미뤘다가 끝나면 한 번만
 function layoutAnim(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;if(!layoutBusy)growInk();layoutBusy=true;clearTimeout(layoutT);layoutT=setTimeout(()=>{layoutBusy=false;fit();},380);}
 let hoMode=false; // 인수인계서 작성 중: 체크리스트를 크게, 필기 칸을 작게
-function setHo(v){if(v!==hoMode)layoutAnim();hoMode=v;$('#work').classList.toggle('ho',v);}
+let big=false; // 체크리스트 70% · 필기 30%: 체크하다가 바로 메모
+function setBig(v){if(v!==big)layoutAnim();big=v;if(v)hoMode&&setHo(false);$('#work').classList.toggle('big',v);}
+function setHo(v){if(v!==hoMode)layoutAnim();hoMode=v;if(v&&big)setBig(false);$('#work').classList.toggle('ho',v);}
 let full=false; // 체크리스트 화면 가득: 필기 칸 숨김
-function setFull(v){if(v!==full)layoutAnim();full=v;if(v)setHo(false);$('#work').classList.toggle('full',v);}
+function setFull(v){if(v!==full)layoutAnim();full=v;if(v){setHo(false);setBig(false);}$('#work').classList.toggle('full',v);}
 function setCollapsed(v){
-  if(v!==collapsed)layoutAnim();collapsed=v;if(v){setHo(false);setFull(false);}$('#work').classList.toggle('collapsed',v);$('#seam').setAttribute('aria-expanded',String(!v));
+  if(v!==collapsed)layoutAnim();collapsed=v;if(v){setHo(false);setFull(false);setBig(false);}$('#work').classList.toggle('collapsed',v);$('#seam').setAttribute('aria-expanded',String(!v));
   focusStep=v?'ink':panelFocus();refreshSteps();
 }
-$('#seamMore').addEventListener('click',()=>{if(collapsed)setCollapsed(false);setFull(true);focusStep=panelFocus();refreshSteps();});
-$('#seam').addEventListener('click',()=>{if(full){setFull(false);focusStep=panelFocus();refreshSteps();return;}if(hoMode){setHo(false);focusStep=panelFocus();refreshSteps();return;}setCollapsed(!collapsed);});
+$('#seamMore').addEventListener('click',()=>{if(collapsed)setCollapsed(false);if(big)setFull(true);else setBig(true);focusStep=panelFocus();refreshSteps();});
+$('#seam').addEventListener('click',()=>{if(full){setFull(false);setBig(true);focusStep=panelFocus();refreshSteps();return;}if(big){setBig(false);focusStep=panelFocus();refreshSteps();return;}if(hoMode){setHo(false);focusStep=panelFocus();refreshSteps();return;}setCollapsed(!collapsed);});
 if($('.steps'))$('.steps').addEventListener('click',e=>{
   const b=e.target.closest('.step');if(!b||!cur)return;const k=b.dataset.step;
   if(k==='org'){if(collapsed)setCollapsed(false);if(!full)setHo(true);focusStep='org';refreshSteps();
@@ -1610,7 +1624,7 @@ async function openSheet(id){
     finally{veil(null);}
   }else{cur=newLog();note=emptyNote();show('sheet');}
   dirty={log:false,ink:false};setStatus('');
-  const wk=$('#work');wk.classList.add('instant');setCollapsed(false);setHo(false);setFull(false);clearTimeout(layoutT);layoutBusy=false;void wk.offsetHeight;requestAnimationFrame(()=>wk.classList.remove('instant'));$('#panel').scrollTop=0;focusStep='info';$('#hoAI').hidden=!settings.apiKey;
+  const wk=$('#work');wk.classList.add('instant');setCollapsed(false);setHo(false);setFull(false);setBig(false);clearTimeout(layoutT);layoutBusy=false;void wk.offsetHeight;requestAnimationFrame(()=>wk.classList.remove('instant'));$('#panel').scrollTop=0;focusStep='info';$('#hoAI').hidden=!settings.apiKey;
   syncPanel();fit();sc.scrollTop=0;redraw();updateUndo();refreshSteps();
 }
 function openDetail(id){
@@ -2442,7 +2456,7 @@ function listTitle(){
   if(/^[가-힣]{2,5}$/.test(w)){const s2=w.slice(0,2);const sur=(w.length>=4&&SURNAME2.includes(s2))?s2:w[0];return sur+'사무장 상담일지';}
   return w+' 상담일지';
 }
-function applyListTitle(){const t=listTitle();$('#listTitle').textContent=t;document.title=t;}
+function applyListTitle(){const t=listTitle();$('#listTitle').textContent=t;document.querySelectorAll('.appTitle').forEach(e=>e.textContent=t);document.title=t;}
 function renderList(){
   applyListTitle();
   updateBanner();$('.ask').hidden=!settings.apiKey;if(!settings.apiKey)$('#askOut').hidden=true;
@@ -2478,6 +2492,8 @@ $('#fMonth').addEventListener('change',e=>{listFilter.month=e.target.value;rende
 $('#fStatus').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;listFilter.status=t.dataset.v;
   $('#fStatus').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===t)));renderList();});
 $('#btnNew').addEventListener('click',()=>openSheet(null));
+$('#sNew').addEventListener('click',()=>openSheet(null)); // 지금 일지는 저장하고 새 상담
+$('#sSet').addEventListener('click',openSettings);
 
 /* 일지에 물어보기 */
 $('#askQ').addEventListener('keydown',e=>{if(e.key==='Enter')ask();});
@@ -2526,7 +2542,7 @@ function updateBanner(){
 }
 $('#banner').addEventListener('click',async()=>{await openSettings();if(settings.writer&&!isApp())$('#stApp').scrollIntoView({behavior:smooth(),block:'start'});});
 $('#btnSet').addEventListener('click',openSettings);
-$('#setBack').addEventListener('click',()=>{show('list');renderList();});
+$('#setBack').addEventListener('click',()=>{if(settingsFrom==='sheet'&&cur){show('sheet');syncPanel();fit();redraw();refreshSteps();return;}show('list');renderList();}); // 상담 중에 연 설정은 닫으면 그 일지로
 /* ---------- 앱 설치 (크롬 전용 안내) ---------- */
 let instEvt=null;
 const isApp=()=>matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches||navigator.standalone===true;
@@ -2555,7 +2571,8 @@ $('#instChrome').addEventListener('click',()=>{ // 안드로이드: 같은 주�
   location.href=`intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;});
 $('#instCopy').addEventListener('click',async()=>{const u=location.origin+location.pathname;
   try{await navigator.clipboard.writeText(u);toast('주소를 복사했어요. 크롬 주소창에 붙여넣어 열어 주세요.');}catch{prompt('이 주소를 복사해 크롬에서 열어 주세요.',u);}});
-async function openSettings(){instUI();
+let settingsFrom='list';
+async function openSettings(){settingsFrom=!$('#view-sheet').hidden&&cur?'sheet':'list';if(settingsFrom==='sheet')await flush();instUI();
   $('#stKey').value=settings.apiKey;$('#stModel').value=settings.model;$('#stModelHQ').value=settings.modelHQ;$('#stWriter').value=settings.writer;$('#stOffice').value=settings.office||'';$('#stTel').value=settings.tel||'';$('#stCal').value=settings.calUrl||'';
   $('#stLine').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===(settings.lineGap||'auto'))));
   document.querySelectorAll('.seg[data-set]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===settings[g.dataset.set]))));
