@@ -528,7 +528,8 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
         <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="penCopy">기록 복사</button><button class="btn" id="penClear">다시 하기</button></div>
         <p class="note-s" id="hwrStat" style="margin:12px 0 0"></p>
       </div>
-      <div class="card"><h3>데이터</h3>
+      <div class="card" id="stData"><h3>데이터</h3>
+        <p class="instWarn" id="stBkWarn" hidden></p>
         <p id="stInfo" style="white-space:pre-line;margin:0 0 12px;font-size:14.5px"></p>
         <p class="note-s" style="margin:0 0 12px">일지는 이 태블릿 브라우저에만 저장돼요. 브라우저 데이터를 지우거나 기기를 바꾸면 사라지니, 백업 파일을 주기적으로 저장해 두세요.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="stBackup">백업 파일 저장</button><button class="btn" id="stRestore">백업에서 불러오기</button><button class="btn" id="btnCsv">CSV로 내보내기</button></div>
@@ -2687,10 +2688,10 @@ function updateBanner(){
   const bn=$('#banner');let msg='';
   if(!settings.writer)msg='설정에서 작성자 이름을 먼저 넣어 주세요. 새 일지에 자동으로 들어가요.';
   else if(!isApp()&&location.protocol==='https:')msg=browserKind()?'크롬에서 열어 앱으로 설치해 주세요. 지금 브라우저에 쓴 일지는 크롬 앱과 따로 저장돼요. (눌러서 방법 보기)':'앱으로 설치하면 주소창 없이 전체 화면으로 써요. 눌러서 설정 → 앱 설치로 가기';
-  else if(logs.size&&Date.now()-(settings.lastBackup||0)>14*864e5)msg=settings.lastBackup?'마지막 백업 후 2주가 지났어요. 설정에서 백업 파일을 저장해 두세요.':'일지는 이 태블릿에만 있어요. 설정에서 백업 파일을 한 번 저장해 두세요.';
+  else if(logs.size&&settings.lastBackup&&Date.now()-settings.lastBackup>14*864e5)msg='마지막 백업 후 2주가 지났어요. 설정에서 백업 파일을 저장해 두세요.';
   bn.hidden=!msg;bn.textContent=msg;
 }
-$('#banner').addEventListener('click',async()=>{await openSettings();if(settings.writer&&!isApp())$('#stApp').scrollIntoView({behavior:smooth(),block:'start'});});
+$('#banner').addEventListener('click',async()=>{await openSettings();const to=!settings.writer?null:!isApp()&&location.protocol==='https:'?'#stApp':'#stData';if(to)$(to).scrollIntoView({behavior:smooth(),block:'start'});});
 $('#btnSet').addEventListener('click',openSettings);
 $('#setBack').addEventListener('click',()=>{if(settingsFrom==='sheet'&&cur){show('sheet');syncPanel();fit();redraw();refreshSteps();return;}show('list');renderList();}); // 상담 중에 연 설정은 닫으면 그 일지로
 /* ---------- 앱 설치 (크롬 전용 안내) ---------- */
@@ -2732,6 +2733,9 @@ async function openSettings(){settingsFrom=!$('#view-sheet').hidden&&cur?'sheet'
   try{const p=await navigator.storage.persisted();info+=p?' / 자동 삭제 방지 켜짐':' / 자동 삭제 방지 꺼짐 (홈 화면 앱으로 설치하면 켜져요)';}catch{}
   info+='\n마지막 백업: '+(settings.lastBackup?new Date(settings.lastBackup).toLocaleString('ko-KR'):'없음');
   $('#stInfo').textContent=info;
+  const bw=$('#stBkWarn'),lb=settings.lastBackup;
+  bw.textContent=!lb?(logs.size?'아직 백업한 적이 없어요. 아래 \'백업 파일 저장\'을 한 번 눌러 두세요.':''):Date.now()-lb>14*864e5?'마지막 백업 후 2주가 지났어요. 백업 파일을 새로 저장해 두세요.':'';
+  bw.hidden=!bw.textContent;
 }
 [['stKey','apiKey'],['stModel','model'],['stModelHQ','modelHQ'],['stWriter','writer'],['stOffice','office'],['stTel','tel'],['stCal','calUrl']].forEach(([id,k])=>
   $('#'+id).addEventListener('input',e=>{settings[k]=e.target.value.trim();saveSettings();}));
