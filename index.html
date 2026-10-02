@@ -191,6 +191,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .hint{position:absolute;left:calc(var(--u,1)*104px);top:calc(var(--u,1)*84px);right:24px;margin:0;color:#94A3AF;font-size:15px;line-height:calc(var(--u,1)*40px);pointer-events:none}
 .hint[hidden]{display:none}
 #ink{position:absolute;left:0;top:0;pointer-events:none}
+.endMore{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:3;height:42px;padding:0 20px;border:1px solid var(--line);border-radius:21px;background:var(--surface);color:var(--text);font-size:14.5px;font-weight:600;box-shadow:0 2px 10px rgba(22,32,42,.12);cursor:pointer}
 .thumb{position:absolute;right:3px;top:0;width:4px;border-radius:2px;background:rgba(22,32,42,.22);pointer-events:none}
 .thumb[hidden]{display:none}
 .rail{position:absolute;left:8px;top:10px;z-index:3;max-height:calc(100% - 20px);overflow-y:auto;scrollbar-width:none;
@@ -417,6 +418,7 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
         <div class="noteScroll" id="noteScroll"><div class="paper" id="paper"><p class="hint" id="noteHint">S펜으로 바로 쓰면 돼요. 손가락으로 밀면 위아래로 움직이고, 펜을 띄운 채 펜 버튼을 한 번 누르면 지우개, 한 번 더 누르면 펜이에요.</p></div></div>
         <canvas id="ink" aria-hidden="true"></canvas>
         <div class="thumb" id="thumb" hidden></div>
+        <button type="button" class="endMore" id="endMore" hidden>＋ 아래로 한 장 더</button>
         <div class="rail" id="rail" role="toolbar" aria-label="펜 도구" aria-orientation="vertical">
           <button class="rt" id="tPen" aria-label="펜" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4.5 19.5l1-4.2L16.2 4.6a2 2 0 012.8 0l.4.4a2 2 0 010 2.8L8.7 18.5z"/><path d="M14.5 6.3l3.2 3.2"/></svg></button>
           <button class="rt" id="tEraser" aria-label="지우개" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4.5 15.5l9-9a2 2 0 012.8 0l2.2 2.2a2 2 0 010 2.8L11 19H7.9z"/><path d="M9 10.5l5 5"/><path d="M11 19h9"/></svg></button>
@@ -1314,17 +1316,37 @@ function drawStroke(g,s){
   for(let i=3;i<a.length;i+=3){g.lineWidth=widthOf(s.w,(a[i-1]+a[i+2])/2);g.beginPath();g.moveTo(a[i-3],a[i-2]);g.lineTo(a[i],a[i+1]);g.stroke();}
 }
 function bbox(s){if(!s._b){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const a=s.p;for(let i=0;i<a.length;i+=3){x0=Math.min(x0,a[i]);x1=Math.max(x1,a[i]);y0=Math.min(y0,a[i+1]);y1=Math.max(y1,a[i+1]);}s._b=[x0,y0,x1,y1];}return s._b;}
-function prep(){ctx.setTransform(u*dpr,0,0,u*dpr,0,-sc.scrollTop*dpr);}
+function prep(){ctx.setTransform(u*dpr,0,0,u*dpr,0,-Math.round(sc.scrollTop*dpr));}
+const PAGE=1414; // A4 한 장 높이(가로 1000 기준)
+/* 필기는 512px 높이 조각(타일)으로 미리 그려 두고, 스크롤할 때는 조각만 붙여서 매 프레임 가볍게 */
+const TILE=512,tiles=new Map();let inkGen=0;
+const inkDirty=()=>{inkGen++;};
+function tileOf(i){
+  const w=cv.width,hp=Math.round(TILE*dpr),LG=lineGap();let t=tiles.get(i);
+  if(t&&t.gen===inkGen&&t.note===note&&t.w===w&&t.hp===hp&&t.u===u&&t.lg===LG)return t;
+  if(!t){t={c:document.createElement('canvas')};tiles.set(i,t);}
+  const c=t.c;if(c.width!==w)c.width=w;if(c.height!==hp)c.height=hp;
+  const g=c.getContext('2d'),y0=i*hp,top=y0/dpr/u,bot=(y0+hp)/dpr/u,lw=Math.max(1,Math.round(dpr));
+  g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,w,hp);
+  g.fillStyle='#D5E1EA';for(let k=Math.max(2,Math.ceil(top/LG));k*LG<=bot+LG;k++)g.fillRect(0,Math.round(k*LG*u*dpr)-y0,w,lw);
+  g.fillStyle='#EDB9BE';g.fillRect(Math.round(MARGIN*u*dpr),0,lw,hp);
+  for(let k=Math.max(1,Math.ceil(top/PAGE));k*PAGE<=bot;k++){ // A4 쪽 나눔 표시
+    const y=Math.round(k*PAGE*u*dpr)-y0;g.fillStyle='#B9C6D1';for(let x=0;x<w;x+=Math.round(14*dpr))g.fillRect(x,y,Math.round(7*dpr),lw);
+    g.font=`600 ${Math.round(12*dpr)}px system-ui,sans-serif`;g.textAlign='right';g.fillStyle='#8A99A6';g.fillText(`${k+1}쪽`,w-Math.round(12*dpr),y+Math.round(16*dpr));}
+  g.setTransform(u*dpr,0,0,u*dpr,0,-y0);
+  for(const s of note.strokes){const b=bbox(s);if(b[3]<top-12||b[1]>bot+12)continue;drawStroke(g,s);}
+  Object.assign(t,{gen:inkGen,note,w,hp,u,lg:LG});return t;
+}
+let idleT=0;
 function redraw(){
   ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
   if(!note)return;
-  const st=sc.scrollTop,top=st/u,bot=(st+Math.max(sc.clientHeight,cv.height/dpr))/u;
-  // 줄과 여백선: 화면 픽셀에 맞춰 선명하게
-  ctx.fillStyle='#D5E1EA';
-  const LG=lineGap();for(let i=Math.max(2,Math.ceil(top/LG));i*LG<=bot+LG;i++){const y=Math.round((i*LG*u-st)*dpr);ctx.fillRect(0,y,cv.width,Math.max(1,Math.round(dpr)));}
-  ctx.fillStyle='#EDB9BE';ctx.fillRect(Math.round(MARGIN*u*dpr),0,Math.max(1,Math.round(dpr)),cv.height);
-  prep();
-  for(const s of note.strokes){const b=bbox(s);if(b[3]<top-12||b[1]>bot+12)continue;drawStroke(ctx,s);}
+  const hp=Math.round(TILE*dpr),stD=Math.round(sc.scrollTop*dpr),i0=Math.floor(stD/hp),i1=Math.floor((stD+cv.height-1)/hp);
+  for(let i=i0;i<=i1;i++)ctx.drawImage(tileOf(i).c,0,i*hp-stD);
+  if(drawing&&drawing.stroke){prep();drawStroke(ctx,drawing.stroke);} // 쓰는 중인 획은 위에 한 번 더
+  for(const k of tiles.keys())if(k<i0-2||k>i1+2){tiles.get(k).c.width=0;tiles.delete(k);} // 멀어진 조각은 버림(메모리)
+  if(!idleT&&window.requestIdleCallback)idleT=requestIdleCallback(()=>{idleT=0;if(!note)return; // 쉬는 틈에 위아래 조각을 미리 그려 둠
+    const st=Math.round(sc.scrollTop*dpr),a=Math.floor(st/hp),b=Math.floor((st+cv.height-1)/hp);for(const i of [b+1,a-1,b+2])if(i>=0&&i*hp<note.h*u*dpr)tileOf(i);},{timeout:300});
 }
 let rafR=0;
 function reqRedraw(){if(!rafR)rafR=requestAnimationFrame(()=>{rafR=0;redraw();updateThumb();});}
@@ -1332,13 +1354,14 @@ function drawSeg(s,i){prep();const a=s.p;ctx.strokeStyle=INK[s.c];ctx.lineCap='r
 function setPaperH(){paper.style.height=Math.round(note.h*u)+'px';}
 function ensureRoom(y){
   if(!note)return;
-  let h=Math.max(note.h,Math.ceil(sc.clientHeight/u*1.5));
-  if(y>h-480)h=y+1200;                     // 끝에 가까워지면 아래로 종이를 늘림
+  let h=Math.max(note.h,PAGE*2,Math.ceil(sc.clientHeight/u*1.5)); // 처음엔 A4 두 장
+  if(y>h-480)h=y+PAGE;                     // 끝에 가까워지면 아래로 한 장 늘림
   h=Math.ceil(h/LINE)*LINE;
   if(h!==note.h){note.h=h;setPaperH();updateThumb();}
 }
 function updateThumb(){
   const th=$('#thumb'),H=sc.scrollHeight,h=sc.clientHeight;
+  $('#endMore').hidden=!note||sc.scrollTop+h<H-Math.max(60,PAGE*u*0.15); // 맨 아래까지 내리면 '한 장 더'
   if(!note||H<=h+2){th.hidden=true;return;}
   th.hidden=false;const tH=Math.max(40,h*h/H);th.style.height=tH+'px';th.style.transform=`translateY(${(sc.scrollTop/(H-h))*(h-tH)}px)`;
 }
@@ -1362,6 +1385,8 @@ function fit(){
 }
 new ResizeObserver(()=>{if(!layoutBusy)fit();}).observe(sc);
 window.addEventListener('uiscale',()=>setTimeout(fit,120));
+$('#endMore').addEventListener('click',()=>{if(!note)return;note.h=Math.ceil((note.h+PAGE)/LINE)*LINE;setPaperH();markDirty('ink');updateThumb();
+  sc.scrollTo({top:sc.scrollTop+Math.round(PAGE*u*0.6),behavior:smooth()});});
 sc.addEventListener('scroll',reqRedraw,{passive:true});
 
 /* ---------- 펜 입력 · 손바닥 무시 · 손가락 스크롤 ---------- */
@@ -1439,7 +1464,7 @@ function eraseTo(sess,x,y,t){ // 이전 지우개 위치에서 지금 위치까�
   sess.lt=t||0;
   const steps=L?Math.max(1,Math.ceil(Math.hypot(x-L[0],y-L[1])/(ER*0.45))):1;let ch=false;
   for(let k=1;k<=steps;k++){const t=k/steps;ch=eraseDot(L?L[0]+(x-L[0])*t:x,L?L[1]+(y-L[1])*t:y)||ch;}
-  sess.last=[x,y];if(ch){sess.changed=true;reqRedraw();}
+  sess.last=[x,y];if(ch){sess.changed=true;inkDirty();reqRedraw();}
 }
 function eraseStart(){return{before:note.strokes.slice(),last:null,changed:false};}
 function eraseEnd(sess){
@@ -1519,7 +1544,7 @@ sc.addEventListener('pointermove',e=>{
   if(drawing&&e.pointerId===drawing.id){
     e.preventDefault();
     if(!drawing.erase&&btnOn()&&btnBits(e)){ // 쓰는 도중 펜 버튼을 누르면 그 자리부터 지우개
-      if(drawing.stroke){drawing.stroke._b=null;note.undo.push({t:'add',s:drawing.stroke});note.redo=[];markDirty('ink');}
+      if(drawing.stroke){drawing.stroke._b=null;inkDirty();note.undo.push({t:'add',s:drawing.stroke});note.redo=[];markDirty('ink');}
       drawing.stroke=null;drawing.erase=true;drawing.byBtn=true;drawing.es=eraseStart();eraserFlag(true);}
     let evs=e.getCoalescedEvents?e.getCoalescedEvents():[];if(!evs.length)evs=[e];
     for(const ev of evs){
@@ -1545,7 +1570,7 @@ function endPointer(e){
   if(drawing&&e.pointerId===drawing.id){
     const d=drawing;drawing=null;if(d.byBtn)eraserFlag(btnHeld);
     if(d.erase){eraseEnd(d.es);btnArm=0;if(!btnHeld&&tool.mode!=='eraser')hideRing();}
-    else if(d.stroke){d.stroke._b=null;note.undo.push({t:'add',s:d.stroke});note.redo=[];markDirty('ink');ensureRoom(bbox(d.stroke)[3]);}
+    else if(d.stroke){d.stroke._b=null;inkDirty();note.undo.push({t:'add',s:d.stroke});note.redo=[];markDirty('ink');ensureRoom(bbox(d.stroke)[3]);}
     updateUndo();refreshSteps();return;
   }
   if(pan&&e.pointerId===pan.id){const p=pan;pan=null;
@@ -1556,7 +1581,7 @@ sc.addEventListener('pointercancel',endPointer,{capture:true});
 sc.addEventListener('contextmenu',e=>{e.preventDefault(); // 펜 버튼이 길게 누르기 메뉴로 새는 것 차단
   // 쓰는 도중 버튼이 눌린 것으로 봄: 방금 그은 획을 없애고 그 경로를 지우개로 훑은 뒤 계속 지움
   if(!drawing||drawing.erase||!btnOn()||!drawing.stroke)return;
-  const s=drawing.stroke,i=note.strokes.lastIndexOf(s);if(i>=0)note.strokes.splice(i,1);
+  const s=drawing.stroke,i=note.strokes.lastIndexOf(s);if(i>=0)note.strokes.splice(i,1);inkDirty();
   drawing.stroke=null;drawing.erase=true;drawing.byBtn=true;drawing.es=eraseStart();eraserFlag(true);
   for(let k=0;k<s.p.length;k+=3)eraseTo(drawing.es,s.p[k],s.p[k+1]);
   reqRedraw();
@@ -1578,11 +1603,11 @@ document.addEventListener('click',e=>{if(blockTap){blockTap=false;e.preventDefau
 function undo(){if(!note)return;const a=note.undo.pop();if(!a)return;
   if(a.t==='add'){const i=note.strokes.lastIndexOf(a.s);if(i>=0)note.strokes.splice(i,1);}
   else if(a.t==='swap')note.strokes=a.before.slice();
-  note.redo.push(a);redraw();markDirty('ink');updateUndo();refreshSteps();}
+  note.redo.push(a);inkDirty();redraw();markDirty('ink');updateUndo();refreshSteps();}
 function redo(){if(!note)return;const a=note.redo.pop();if(!a)return;
   if(a.t==='add')note.strokes.push(a.s);
   else if(a.t==='swap')note.strokes=a.after.slice();
-  note.undo.push(a);redraw();markDirty('ink');updateUndo();refreshSteps();}
+  note.undo.push(a);inkDirty();redraw();markDirty('ink');updateUndo();refreshSteps();}
 function updateUndo(){$('#tUndo').disabled=!note||!note.undo.length;$('#tRedo').disabled=!note||!note.redo.length;}
 function goEnd(){
   if(!note||!note.strokes.length){sc.scrollTo({top:0,behavior:smooth()});return;}
