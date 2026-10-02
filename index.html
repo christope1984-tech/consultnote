@@ -298,6 +298,7 @@ select{min-height:46px;padding:0 10px;border-radius:10px;border:1px solid var(--
 #panel.corp .only-indiv,#panel:not(.corp) .only-corp{display:none}
 #panel.pre .no-pre{display:none}
 #panel:not(.conv) .only-conv{display:none}
+#panel .only-hid,#panel .item.rcOff{display:none}
 .grp.off{display:none}
 .txAmt{align-items:center}.txEok{display:none}.txAmt.eon .txEok{display:contents}.txEokBtn{min-height:40px;font-size:13.5px;padding:0 12px}
 .txSum{margin:6px 0 0;font-size:16px;font-weight:700;color:var(--accent)}.txSum:empty{display:none}
@@ -617,6 +618,10 @@ const HO=[['bizAcct','사업용계좌'],['relief','창업감면'],['asset','고�
 const HO_KEYS=HO.map(x=>x[0]);
 /* 검토보고서용 영업 정보 (업체 정보 단계) */
 const INFO_ITEMS=[['ceoAge','대표 나이·성별'],['sales','매출 규모'],['taxSim','종소세·절세'],['prevAgent','기존 기장']];
+/* 체크리스트 화면 순서: 보고서·내보내기 순서는 위 목록 그대로, 화면만 이 순서로 */
+const PANEL_INFO=INFO_ITEMS.filter(([k])=>k!=='taxSim');
+const PANEL_LEFT=(()=>{const m=Object.fromEntries([...LEFT,...INFO_ITEMS]);
+  return['openDate','initCost','rightsContract','staff','rent','cardReg','vehicle','loanPlan','taxSim'].map(k=>[k,m[k]]);})();
 const THIS_Y=new Date().getFullYear();
 const yy=y=>String(y%100).padStart(2,'0');
 /* ----- 종소세 절세 시뮬레이션 (개인사업자, 금액은 만원 단위) -----
@@ -697,7 +702,7 @@ const PICK={
   staff:{nums:[['ins4','4대보험'],['biz33','3.3%'],['daily','일용직'],['unreg','미신고'],['foreign','외국인',0],['family','가족']],groups:[{t:'외국인',o:['신고중','미신고'],inline:1}],v:3},
   rent:{groups:[{t:'사업장',o:['임차','자가','무상 사용']},{t:'월세',o:['100만 미만','100~200만','200~300만','300만 이상']},{t:'임대인',o:['일반과세자','간이과세자','비사업자 개인','법인']}],memo:'보증금·월세 금액'},
   cardReg:{nopre:1,groups:[{t:'홈택스 사업용 카드',o:['등록 완료','미등록','사업용 카드 없음']}],memo:'메모',only:'indiv'},
-  rightsContract:{groups:[{t:'권리금',o:['권리금 있음','권리금 없음']},{t:'계약서',o:['계약서 있음','계약서 없음'],hide:[0,'권리금 없음']},{t:'세금 처리',o:['세금계산서 발행','기타소득 원천징수','미처리'],hide:[0,'권리금 없음']}],memo:'금액 메모'},
+  rightsContract:{groups:[{t:'권리금',o:['권리금 있음','권리금 없음'],only:'hid'},{t:'계약서',o:['계약서 있음','계약서 없음'],hide:[0,'권리금 없음']},{t:'세금 처리',o:['세금계산서 발행','기타소득 원천징수','미처리'],hide:[0,'권리금 없음']}],memo:'금액 메모'},
   loanPlan:{groups:[{t:'대출 계획',o:['계획 있음','계획 없음']},{t:'금액',o:['3천만','5천만','1억','1억 이상'],hide:[0,'계획 없음']},{t:'종류',o:['정책자금 대출','부동산 대출','신용 대출','시설·장비 대출'],m:1,hide:[0,'계획 없음']}],memo:'대출 메모',ph:'예: 내년 상반기 매장 확장 때'},
   vehicle:{groups:[{t:'차량',o:['없음','개인 명의','법인 명의','리스','렌트']},{t:'용도',o:['업무 전용','출퇴근 겸용','화물·영업용']}],memo:'차종 메모'},
   /* 영업 정보 */
@@ -886,10 +891,10 @@ function buildPanel(){
     <div class="item entityItem" data-item="entity"><div class="ihead"><h3>사업자 구분</h3></div>${pickHTML('entity')}</div>
     <div class="item only-indiv only-conv" data-item="convPlan"><div class="ihead"><h3>법인전환 계획</h3>${incHTML('convPlan')}</div>${pickHTML('convPlan')}</div>
     <div class="item" data-item="bizType"><div class="ihead"><h3>업종/형태</h3>${incHTML('bizType')}</div>${pickHTML('bizType')}</div>
-    ${INFO_ITEMS.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
+    ${PANEL_INFO.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
   </section>
   <section id="secItems"><h2>항목</h2>
-    ${LEFT.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
+    ${PANEL_LEFT.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
   </section>
   <section id="secCorp" class="only-corp"><h2>법인 체크리스트</h2>
     ${CORP.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
@@ -985,6 +990,8 @@ function syncPanel(){
   v.querySelectorAll('.chip').forEach(b=>{const s=selOf(b.dataset.k);b.setAttribute('aria-pressed',String(((s.g&&s.g[+b.dataset.g])||[]).includes(b.dataset.o)));});
   v.querySelectorAll('.grp[data-hk]').forEach(el=>el.classList.toggle('off',(((selOf(el.dataset.hk).g||[])[+el.dataset.hg])||[]).includes(el.dataset.hv)));
   v.querySelectorAll('[data-ck]').forEach(b=>b.setAttribute('aria-pressed',String(cur.checks[b.dataset.ck]===b.dataset.v)));
+  { const ic=(((selOf('initCost').g||[])[1])||[]),rc=((((selOf('rightsContract').g||[])[0])||[])[0]),el=document.querySelector('#panel [data-item="rightsContract"]');
+    if(el)el.classList.toggle('rcOff',!(ic.includes('권리금')||(rc==='권리금 있음'&&!ic.length))); }
   v.querySelectorAll('[data-crowd]').forEach(b=>b.setAttribute('aria-pressed',String(cur.fields.overcrowd===b.dataset.crowd)));
   v.querySelectorAll('[data-seck]').forEach(b=>b.setAttribute('aria-pressed',String(isSecItem(cur,b.dataset.seck))));
   v.querySelectorAll('[data-exk]').forEach(b=>{const x=isEx(cur,b.dataset.exk);b.setAttribute('aria-pressed',String(!x));b.textContent=x?'인계 제외':'인계 포함';
@@ -1011,12 +1018,14 @@ function entitySync(k,i){ // 사업자 구분이 바뀌면 그 구분에 없는 
   if(t&&!(corp?g.oc:g.o).includes(t)){b.g[0]=[];for(let j=0;j<b.g.length;j++)if(!b.g[j])b.g[j]=[];setField('bizType',selText('bizType',b));}
 }
 /* 권리금 없음 → 계약서·세금 처리 비우고 초기 투자 '권리금' 해제 / 초기 투자에 '권리금' 고르면 권리금 있음으로 */
-function rightsSync(k,i){
+function rightsSync(k,i,o){
   if(k==='rightsContract'&&i===0){const s=selW('rightsContract');if((s.g[0]||[])[0]!=='권리금 없음')return;
     s.g[1]=[];s.g[2]=[];setField(k,selText(k,s));
     if((((selOf('initCost').g||[])[1])||[]).includes('권리금')){const w=selW('initCost');w.g[1]=(w.g[1]||[]).filter(x=>x!=='권리금');setField('initCost',selText('initCost',w));}}
-  else if(k==='initCost'&&i===1){if(!((((selOf('initCost').g||[])[1])||[]).includes('권리금')))return;
-    if(((((selOf('rightsContract').g||[])[0])||[])[0])==='권리금 없음'){const w=selW('rightsContract');w.g[0]=['권리금 있음'];setField('rightsContract',selText('rightsContract',w));}}
+  else if(k==='initCost'&&i===1&&o==='권리금'){const on=(((selOf('initCost').g||[])[1])||[]).includes('권리금'),w=selW('rightsContract');
+    if(on){if((w.g[0]||[])[0]!=='권리금 있음'){w.g[0]=['권리금 있음'];setField('rightsContract',selText('rightsContract',w));}
+      const it=document.querySelector('#panel [data-item="rightsContract"]');if(it){it.classList.remove('shut');const t=it.querySelector('.itog');if(t)t.setAttribute('aria-expanded','true');}}
+    else if((w.g[0]||[])[0]==='권리금 있음'){w.g[0]=['권리금 없음'];w.g[1]=[];w.g[2]=[];setField('rightsContract',selText('rightsContract',w));}}
 }
 /* 대출: 계획 없음 → 금액·종류 비움 / 금액·종류를 고르면 계획 있음으로 */
 function loanSync(k,i){if(k!=='loanPlan')return;const s=selW('loanPlan');
@@ -1056,7 +1065,7 @@ $('#panel').addEventListener('click',e=>{
     let a=(s.g[i]||[]).slice();const keep=k==='ceoAge'&&i===0&&s.old&&a.includes(o); // 예전 구간 확인: 눌린 칩을 다시 누르면 그대로 확정
     if(k==='ceoAge'&&i===0)delete s.old;
     if(!keep)a=a.includes(o)?a.filter(x=>x!==o):(g.m?[...a,o]:[o]);
-    for(let j=0;j<i;j++)if(!s.g[j])s.g[j]=[];s.g[i]=a;setField(k,selText(k,s));entitySync(k,i);stageSync(k,i);rightsSync(k,i);loanSync(k,i);ageSync(k,i);}
+    for(let j=0;j<i;j++)if(!s.g[j])s.g[j]=[];s.g[i]=a;setField(k,selText(k,s));entitySync(k,i);stageSync(k,i);rightsSync(k,i,o);loanSync(k,i);ageSync(k,i);}
   else if(y){const k=y.dataset.ck;cur.checks[k]=cur.checks[k]===y.dataset.v?'':y.dataset.v;}
   else if(cr){const v=cr.dataset.crowd;cur.fields.overcrowd=cur.fields.overcrowd===v?'':v;}
   else return;
