@@ -116,6 +116,9 @@ button,input,textarea,select{font:inherit;color:inherit}
 .panel h2{position:sticky;top:0;z-index:2;margin:0;padding:12px 0 8px;background:var(--surface);border-bottom:1px solid var(--line);font-size:14px;font-weight:600;color:var(--muted)}
 .panel section+section{margin-top:6px}
 .item{padding:12px 0 12px;border-bottom:1px solid var(--line2)}
+.sub{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}
+.shd{display:flex;align-items:center;gap:12px;min-height:40px;margin-bottom:4px}
+.shd h4{flex:1;min-width:0;margin:0;font-size:15px;font-weight:600}
 .ihead{display:flex;align-items:center;gap:12px;margin-bottom:6px}
 .ihead h3{flex:1;min-width:0;margin:0;font-size:16.5px;font-weight:600}
 .itog{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -169,7 +172,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .hoInc[aria-pressed="true"]{border-style:solid;border-color:var(--accent);color:var(--accent);font-weight:600}
 .hoSec{flex:none;min-height:38px;padding:0 13px;border-radius:19px;border:1px dashed var(--line);background:transparent;color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer}
 .hoSec[aria-pressed="true"]{border-style:solid;border-color:#6B4FA0;background:#6B4FA0;color:#fff;font-weight:600}
-.item.ex .ihead h3,.brow.ex>span:first-child{color:var(--muted)}
+.item.ex .ihead h3,.sub.ex .shd h4,.brow.ex>span:first-child{color:var(--muted)}
 .brow>span:first-child{flex:1}
 .brow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2);font-size:15.5px}
 
@@ -231,7 +234,7 @@ button,input,textarea,select{font:inherit;color:inherit}
   .shead{flex-wrap:wrap;gap:4px 10px}
   .h-company{flex:1 1 40%;order:2}
   .h-ceo{flex:1 1 40%;order:3}.h-date{order:4;width:150px}
-  .hsub{order:5;margin-left:0;flex-wrap:wrap;gap:4px 10px}.h-tel{flex:1 1 40%}.h-addr{flex:1 1 55%}
+  .hsub{order:5;margin-left:0;flex-wrap:wrap;gap:4px 10px}.h-addr{flex:1 1 55%}.h-tel{flex:1 1 40%}
   .steps{padding-left:6px;padding-right:8px}.step{padding-right:6px;font-size:14px}.step em{display:none}
   .grp{grid-template-columns:78px 1fr}
   .frow.two,.frow.one{grid-template-columns:78px 1fr}.frow.addr{grid-template-columns:78px 1fr}.frow.addr .yn{grid-column:2}
@@ -431,8 +434,8 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
       <button class="btn primary" id="sCal" style="flex:none">일정 불러오기</button>
       <span class="status" id="sStatus" aria-live="polite"></span>
       <div class="hsub">
-        <input class="h-tel" data-key="phone" type="tel" inputmode="tel" placeholder="연락처" aria-label="연락처" autocomplete="off">
         <input class="h-addr" data-key="address" placeholder="주소" aria-label="주소" autocomplete="off" spellcheck="false">
+        <input class="h-tel" data-key="phone" type="tel" inputmode="tel" placeholder="연락처" aria-label="연락처" autocomplete="off">
         <div class="yn h-crowd" role="group" aria-label="과밀억제권역 여부"><button type="button" data-crowd="과밀" aria-pressed="false">과밀</button><button type="button" data-crowd="비과밀" aria-pressed="false">비과밀</button></div>
       </div>
     </header>
@@ -618,10 +621,13 @@ const HO=[['bizAcct','사업용계좌'],['relief','창업감면'],['asset','고�
 const HO_KEYS=HO.map(x=>x[0]);
 /* 검토보고서용 영업 정보 (업체 정보 단계) */
 const INFO_ITEMS=[['ceoAge','대표 나이·성별'],['sales','매출 규모'],['taxSim','종소세·절세'],['prevAgent','기존 기장']];
+const SUBS={initCost:[['asset','고정자산 등록']],cardReg:[['bizAcct','사업용계좌']],ceoAge:[['relief','창업감면']]};
+const SUB_KEYS=new Set(Object.values(SUBS).flat().map(x=>x[0]));
+const PANEL_NAME={cardReg:'사업용 신용카드·계좌'};
 /* 체크리스트 화면 순서: 보고서·내보내기 순서는 위 목록 그대로, 화면만 이 순서로 */
 const PANEL_INFO=INFO_ITEMS.filter(([k])=>k!=='taxSim');
 const PANEL_LEFT=(()=>{const m=Object.fromEntries([...LEFT,...INFO_ITEMS]);
-  return['openDate','initCost','rightsContract','staff','rent','cardReg','vehicle','loanPlan','taxSim'].map(k=>[k,m[k]]);})();
+  return['openDate','initCost','rightsContract','staff','rent','cardReg','vehicle','loanPlan','taxSim'].map(k=>[k,PANEL_NAME[k]||m[k]]);})();
 const THIS_Y=new Date().getFullYear();
 const yy=y=>String(y%100).padStart(2,'0');
 /* ----- 종소세 절세 시뮬레이션 (개인사업자, 금액은 만원 단위) -----
@@ -718,7 +724,8 @@ const PICK={
   prevAgent:{nopre:1,groups:[{t:'현재',o:['없음','신고대리','협회']}],steps:[{n:'fee',t:'월 기장료',unit:'만원',min:3,sub:'3만원부터',label:1}]},
   /* 인수인계 */
   bizAcct:{nopre:1,groups:[{t:'등록',o:['등록','미등록','대표 모름']}],memo:'메모',only:'indiv'},
-  relief:{nopre:1,groups:[{t:'감면율',s:'26년~ 창업은 75·25% 있음',o:['100%','75%','50%','25%','미해당']},{t:'개업연도',o:['결손','소득 있음']},{t:'적용 시작',o:[THIS_Y-1,THIS_Y,THIS_Y+1].map(y=>yy(y)+'년')},{t:'안내',o:['기간 정정 안내함']}],memo:'지역 메모'},
+  relief:{nopre:1,groups:[{t:'감면율',s:'26년~ 창업은 75·25% 있음',o:['100%','75%','50%','25%','미해당']},{t:'개업연도',o:['결손','소득 있음']},{t:'적용 시작',o:[THIS_Y-1,THIS_Y,THIS_Y+1].map(y=>yy(y)+'년'),inline:1},{t:'안내',o:['기간 정정 안내함'],after:1}],
+    steps:[{n:'sy',t:'적용 시작',unit:'년',base:THIS_Y,len:4,hide:[0,'미해당']}],memo:'지역 메모'},
   asset:{nopre:1,groups:[{t:'등록',o:['등록 완료','미등록','확인 필요']},{t:'대상',o:['차량','비품','설비','인테리어','렌탈 물품','기계장치'],m:1}],memo:'메모'},
   bizNote:{groups:[],memo:'사업 상황',hint:'S펜 필기 → 글자',area:1,ph:'칸 안에 S펜으로 바로 쓰면 글자로 바뀌어요. 한 줄에 한 내용씩 쓰면 문장으로 이어 붙여요.'},
   trait:{groups:[{t:'성향',o:['절세 관심 높음','사업 수완 좋음','확장 계획 있음','추가 사업장 가능성','주변 소개 가능성','빠른 소통'],m:1}],memo:'메모',ph:'예: 자리가 부족해 더 못 받는 상태'},
@@ -862,6 +869,11 @@ function txUI(){const el=$('#txOut');if(!el||!cur)return;const s=selOf('taxSim')
     +`<p class="txNote">최저한세 ${txWon(r.MT)}: 감면·공제를 받아도 이 아래로는 줄지 않아요.${r.blk>=0.5?` 최저한세에 걸려 3년간 ${txWon(r.blk)}은 못 받아요`+(r.blkHire>=0.5?`(통합고용분 ${txWon(r.blkHire)}은 10년간 이월).`:'.'):''}</p>`
     +(r.ny||r.no?`<p class="txNote">지역 ${r.reg}${r.regAuto?'(주소 기준)':''} · 1명 늘리면 3년간 청년 등 ${txWon(TX_HIRE.y[r.ri].reduce((a,b)=>a+b))}, 청년 외 ${txWon(TX_HIRE.o[r.ri].reduce((a,b)=>a+b))} (인원 유지 시, 최저한세 전)</p>`:'')
     +(y1.alt?`<p class="txNote">창업감면과 ${y1.alt==='창업감면'?'통합고용·중소기업특별세액감면':y1.alt}은 함께 받을 수 없어 유리한 쪽(${y1.alt})으로 계산했어요.</p>`:'');}
+const icls=k=>(PICK[k].only?' only-'+PICK[k].only:'')+(PICK[k].nopre?' no-pre':'');
+function itemHTML(k,n){return`<div class="item${icls(k)}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}`
+  +(SUBS[k]||[]).map(([q,qn])=>`<div class="sub${icls(q)}" data-item="${q}"><div class="shd"><h4>${qn}</h4>${incHTML(q)}</div>${pickHTML(q)}</div>`).join('')+'</div>';}
+function grpHTML(k,c,pred){return c.groups.map((g,i)=>!pred(g)?'':`<div class="grp${g.only?' only-'+g.only:''}"${g.hide?` data-hk="${k}" data-hg="${g.hide[0]}" data-hv="${esc(g.hide[1])}"`:''}><span class="gl">${g.t}${g.m?'<small>여러 개 선택</small>':g.s?`<small>${g.s}</small>`:''}</span><div class="chips" role="group" aria-label="${esc(NAME[k]+' '+g.t)}">${
+      (g.oc?[...g.o.map(o=>[o,' only-indiv']),...g.oc.map(o=>[o,' only-corp'])]:g.o.map(o=>[o,g.oo&&g.oo[o]?' only-'+g.oo[o]:''])).map(([o,oc])=>`<button type="button" class="chip${oc}" data-k="${k}" data-g="${i}" data-o="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div></div>`).join('');}
 function pickHTML(k){
   const c=PICK[k];if(c.custom)return taxSimHTML(k);
   return (c.nums?`<div class="grp"><span class="gl">인원<small>대표 제외</small></span><div class="nums">${c.nums.map(([n,t,gi])=>`<div class="num"><span class="nl">${t}</span>`
@@ -871,8 +883,7 @@ function pickHTML(k){
       +(gi===undefined?'':`<div class="chips" role="group" aria-label="${esc(t+' '+c.groups[gi].t)}">${c.groups[gi].o.map(o=>`<button type="button" class="chip" data-k="${k}" data-g="${gi}" data-o="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div>`)
       +`</div>`).join('')}</div></div>`
       +`<div class="grp"><span></span><p class="numhint" id="nh_${k}" aria-live="polite"></p></div>`:'')
-    +c.groups.map((g,i)=>g.inline?'':`<div class="grp${g.only?' only-'+g.only:''}"${g.hide?` data-hk="${k}" data-hg="${g.hide[0]}" data-hv="${esc(g.hide[1])}"`:''}><span class="gl">${g.t}${g.m?'<small>여러 개 선택</small>':g.s?`<small>${g.s}</small>`:''}</span><div class="chips" role="group" aria-label="${esc(NAME[k]+' '+g.t)}">${
-      (g.oc?[...g.o.map(o=>[o,' only-indiv']),...g.oc.map(o=>[o,' only-corp'])]:g.o.map(o=>[o,g.oo&&g.oo[o]?' only-'+g.oo[o]:''])).map(([o,oc])=>`<button type="button" class="chip${oc}" data-k="${k}" data-g="${i}" data-o="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div></div>`).join('')
+    +grpHTML(k,c,g=>!g.inline&&!g.after)
     +(c.date?`<div class="grp"><label class="gl" for="d_${k}">${c.date}</label><div><input class="fin date" type="date" id="d_${k}" data-k="${k}" data-role="d"></div></div>`:'')
     +(c.steps||[]).reduce((h,sp)=>{const num=`<div class="num">`
       +`<button type="button" class="nb" data-k="${k}" data-n="${sp.n}" data-inc="-1" aria-label="${sp.t} 줄이기">−</button>`
@@ -880,6 +891,7 @@ function pickHTML(k){
       +`<button type="button" class="nb" data-k="${k}" data-n="${sp.n}" data-inc="1" aria-label="${sp.t} 늘리기">+</button><span class="unit">${sp.unit}</span></div>`;
       if(sp.join&&h)return h.replace(/<\/div><\/div>$/,num+'</div></div>'); // 앞 칸과 같은 줄(예: 년 + 개월)
       return h+`<div class="grp"${sp.hide?` data-hk="${k}" data-hg="${sp.hide[0]}" data-hv="${esc(sp.hide[1])}"`:''}><span class="gl">${sp.t}${sp.sub?`<small>${sp.sub}</small>`:''}</span><div class="nums">${num}</div></div>`;},'')
+    +grpHTML(k,c,g=>g.after&&!g.inline)
     +(c.note?`<div class="grp"><span></span><p class="numhint" id="ah_${k}" aria-live="polite"></p></div>`:'')
     +(!c.memo||!c.area?'':c.area
       ?`<div class="grp"><label class="gl" for="t_${k}">${c.memo}${c.hint?`<small>${c.hint}</small>`:''}</label><div><textarea class="fin area" id="t_${k}" data-k="${k}" data-role="t" rows="4" autocomplete="off" placeholder="${esc(c.ph||'직접 입력')}"></textarea></div></div>`
@@ -891,16 +903,16 @@ function buildPanel(){
     <div class="item entityItem" data-item="entity"><div class="ihead"><h3>사업자 구분</h3></div>${pickHTML('entity')}</div>
     <div class="item only-indiv only-conv" data-item="convPlan"><div class="ihead"><h3>법인전환 계획</h3>${incHTML('convPlan')}</div>${pickHTML('convPlan')}</div>
     <div class="item" data-item="bizType"><div class="ihead"><h3>업종/형태</h3>${incHTML('bizType')}</div>${pickHTML('bizType')}</div>
-    ${PANEL_INFO.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
+    ${PANEL_INFO.map(([k,n])=>itemHTML(k,n)).join('')}
   </section>
   <section id="secItems"><h2>항목</h2>
-    ${PANEL_LEFT.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
+    ${PANEL_LEFT.map(([k,n])=>itemHTML(k,n)).join('')}
   </section>
   <section id="secCorp" class="only-corp"><h2>법인 체크리스트</h2>
-    ${CORP.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
+    ${CORP.map(([k,n])=>itemHTML(k,n)).join('')}
   </section>
   <section id="secHo"><h2>인수인계</h2>
-    ${HO.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
+    ${HO.filter(([k])=>!SUB_KEYS.has(k)).map(([k,n])=>itemHTML(k,n)).join('')}
     <div class="hoOut">
       <div class="hoHead"><h3>인수인계서 미리보기</h3><button type="button" class="btn primary" id="hoCopy">인수인계서 복사</button></div>
       <p class="hoText" id="hoText" aria-live="polite"></p>
@@ -924,13 +936,13 @@ function foldInit(){
 function setOpen(it,on){it.classList.toggle('shut',!on);const b=it.querySelector('.itog');if(b)b.setAttribute('aria-expanded',String(on));
   const k=it.dataset.item,o=new Set(settings.openItems||[]);on?o.add(k):o.delete(k);settings.openItems=[...o];}
 function foldSums(){if(!cur)return;
-  document.querySelectorAll('#panel .item[data-item] .isum').forEach(el=>{const k=el.closest('.item').dataset.item;el.textContent=String(getField(k)||'').replace(/\s+/g,' ').trim();});}
+  document.querySelectorAll('#panel .item[data-item] .isum').forEach(el=>{const k=el.closest('.item').dataset.item;el.textContent=[k,...(SUBS[k]||[]).map(x=>x[0])].map(x=>String(getField(x)||'').replace(/\s+/g,' ').trim()).filter(Boolean).join(' / ');});}
 document.getElementById('panel').addEventListener('click',e=>{
   const t=e.target.closest('.itog');if(t){const it=t.closest('.item');setOpen(it,it.classList.contains('shut'));saveSettings();return;}
   const f=e.target.closest('[data-fold]');if(f){f.closest('section').querySelectorAll('.item[data-item]').forEach(it=>setOpen(it,f.dataset.fold==='1'));saveSettings();}
 });
 function selText(k,s){
-  const cfg=PICK[k],parts=[];if(cfg.custom)return txText(s);
+  const cfg=PICK[k],parts=[];if(cfg.custom)return txText(s);if(k==='relief')relYr(s);
   if(cfg.nums){const n=s.n||{},a=cfg.nums.filter(([x])=>n[x]!==undefined&&n[x]!=='').map(([x,t,gi])=>`${t} ${n[x]}명${gi!==undefined&&(s.g&&s.g[gi]||[]).length?'('+s.g[gi].join(', ')+')':''}`);if(a.length)parts.push(a.join(', '));}
   cfg.groups.forEach((g,i)=>{if(g.inline)return;let v=(s.g&&s.g[i])||[];if(k==='ceoAge'&&i===0&&s.old&&v[0]==='만 39세 이하')v=[s.old];if(v.length)parts.push(v.join(', '));});
   if(cfg.steps){const n=s.n||{},a=cfg.steps.filter(x=>n[x.n]).map(x=>`${x.label?x.t+' ':''}${n[x.n]}${x.unit}`);if(a.length)parts.push(a.join(' '));}
@@ -977,7 +989,10 @@ function ageSync(k,i){if(k!=='ceoAge')return;const s=selW('ceoAge');s.n=s.n||{};
 function milSync(k){if(k!=='ceoAge')return false;const s=selW('ceoAge'),n=s.n||{};
   if(!(+n.my||+n.mm)||(s.g[2]||[])[0]==='병역 이행')return false;
   for(let j=0;j<2;j++)if(!s.g[j])s.g[j]=[];s.g[2]=['병역 이행'];setField(k,selText(k,s));return true;}
-function selOf(k){const s=cur.fields.sel&&cur.fields.sel[k];return s||{g:[],d:'',t:getField(k),n:{},v:2};}
+/* 창업감면 적용 시작: 숫자칸(n.sy, 2023) ↔ 보고서용 g[2]('23년'). 예전 일지는 g[2]에서 숫자칸으로 옮김 */
+function relYr(s){if(!s)return;s.n=s.n||{};const g=s.g=s.g||[];for(let j=0;j<2;j++)if(!g[j])g[j]=[];
+  if(s.n.sy===undefined){const y=parseInt((g[2]||[])[0]);if(y)s.n.sy=String(2000+y);}else g[2]=s.n.sy?[yy(+s.n.sy)+'년']:[];}
+function selOf(k){const s=cur.fields.sel&&cur.fields.sel[k];if(k==='relief')relYr(s);return s||{g:[],d:'',t:getField(k),n:{},v:2};}
 function selW(k){cur.fields.sel=cur.fields.sel||{};if(!cur.fields.sel[k])cur.fields.sel[k]=clone(selOf(k));const s=cur.fields.sel[k];s.g=s.g||[];return s;}
 function syncPanel(){
   if(!cur)return;
