@@ -101,7 +101,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .step.go i{border-color:transparent;background:rgba(255,255,255,.2);color:inherit}
 
 .work{flex:1;min-height:0;display:flex;flex-direction:column}
-.panel{flex:1 1 0;min-height:0;position:relative;overflow-y:auto;overscroll-behavior:contain;background:var(--surface);padding:0 18px 20px}
+.panel{flex:2 1 0;min-height:0;position:relative;overflow-y:auto;overscroll-behavior:contain;background:var(--surface);padding:0 18px 20px}
 .work.collapsed .panel{flex-grow:0;padding-bottom:0;overflow:hidden;visibility:hidden}
 /* 체크리스트·필기 칸 크기 전환 애니메이션 (display:none 대신 flex-grow를 0으로) */
 .panel,.note{transition:flex-grow .34s cubic-bezier(.22,.8,.24,1),padding-bottom .34s cubic-bezier(.22,.8,.24,1),visibility 0s}
@@ -161,16 +161,16 @@ button,input,textarea,select{font:inherit;color:inherit}
 .seam svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
 .work.collapsed .seam svg{transform:rotate(180deg)}
 @media (prefers-reduced-motion:reduce){.seam svg{transition:none}}
-.seamMore{flex:none;display:flex;align-items:center;gap:6px;height:44px;padding:0 18px;border:0;border-left:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer}
-.seamMore svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.work.collapsed .seamMore,.work.full .seamMore{display:none}
+.seamSize{flex:none;display:flex;align-items:center;gap:4px;padding:0 10px;border-left:1px solid var(--line);background:var(--bg)}
+.seamSize button{min-width:56px;height:34px;padding:0 10px;border:1px solid var(--line);border-radius:17px;background:var(--card);color:var(--text);font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer}
+.seamSize button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .work.big .panel{flex:7 1 0}
 .work.big .note{flex:3 1 0}
 .work.full .panel{flex:1 1 0}
 .work.full .note{flex-grow:0;visibility:hidden}
 .work.full .seam{color:var(--text);font-weight:600}
 
-.note{flex:2 1 0;min-height:0;position:relative;overflow:hidden;background:#FFFFFF}
+.note{flex:3 1 0;min-height:0;position:relative;overflow:hidden;background:#FFFFFF}
 .work.collapsed .note{flex:1 1 0}
 .ering{position:absolute;left:0;top:0;pointer-events:none;border:1.5px solid #5B6B76;border-radius:50%;background:rgba(91,107,118,.10);display:none;z-index:4;will-change:transform}
 .ering.on{display:block}
@@ -411,7 +411,7 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
     </header>
     <div class="work" id="work">
       <div class="panel" id="panel"></div>
-      <div class="seamBar"><button class="seam" id="seam" aria-expanded="true" aria-controls="panel"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg><span id="seamText">체크리스트 접기</span></button><button class="seamMore" id="seamMore" aria-controls="panel"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><span id="seamMoreText">크게 펼치기 (70%)</span></button></div>
+      <div class="seamBar"><button class="seam" id="seam" aria-expanded="true" aria-controls="panel"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg><span id="seamText">체크리스트 접기</span></button><div class="seamSize" role="group" aria-label="체크리스트 크기"><button type="button" data-size="0" aria-pressed="false">0%</button><button type="button" data-size="40" aria-pressed="false">40%</button><button type="button" data-size="70" aria-pressed="false">70%</button><button type="button" data-size="100" aria-pressed="false">100%</button></div></div>
       <div class="note" id="note">
         <div class="noteScroll" id="noteScroll"><div class="paper" id="paper"><p class="hint" id="noteHint">S펜으로 바로 쓰면 돼요. 손가락으로 밀면 위아래로 움직이고, 펜을 띄운 채 펜 버튼을 한 번 누르면 지우개, 한 번 더 누르면 펜이에요.</p></div></div>
         <canvas id="ink" aria-hidden="true"></canvas>
@@ -662,7 +662,7 @@ const PICK={
   certs:{groups:[{t:'보유 인증',o:CERTS,m:1},{t:'관심 있음',o:CERTS,m:1}],memo:'메모',only:'corp'},
   rnd:{groups:[{t:'연구 조직',o:['기업부설연구소','연구개발전담부서','없음','설립 검토']},{t:'연구 인력',o:['연구 인력 있음','연구 인력 없음']}],only:'corp'},
   corpFund:{groups:[{t:'이용 중',o:['정책자금','보증서 대출','이용 없음'],m:1},{t:'관심',o:['운전자금','시설자금','R&D 과제'],m:1}],only:'corp'},
-  bizType:{groups:[{t:'과세 유형',o:['간이과세','일반과세','면세'],oc:['과세','면세','협회']},{t:'업종',o:['음식점','카페','소매','도소매','온라인 판매','건설','제조','서비스','임대·렌탈','기타']}],memo:'세부 업종'},
+  bizType:{groups:[{t:'과세 유형',o:['간이과세','일반과세','면세'],oc:['과세','면세','협회']},{t:'업종',m:1,o:['음식점','카페','소매','도소매','온라인 판매','건설','제조','서비스','임대·렌탈','기타']}],memo:'세부 업종'},
   openDate:{groups:[],steps:[{n:'y',t:'연도',unit:'년',base:THIS_Y,len:4},{n:'m',t:'월',unit:'월',min:1,max:12,wrap:1}]},
   initCost:{groups:[{t:'총 투자 규모',o:['1천만 미만','1천~3천만','3천~5천만','5천만~1억','1억 이상']},{t:'포함 내역',o:['인테리어','권리금','시설·장비','차량','초도 물품'],m:1},{t:'증빙',o:['세금계산서 있음','일부만 있음','증빙 없음']}],memo:'금액 메모'},
   staff:{nums:[['ins4','4대보험'],['biz33','3.3%'],['daily','일용직'],['unreg','미신고'],['foreign','외국인',0],['family','가족']],groups:[{t:'외국인',o:['신고중','미신고'],inline:1}],v:3},
@@ -1100,8 +1100,9 @@ function hoText(l){
   }
   { // 사업 내용 · 차량 · 고정자산
     const IND={'음식점':'음식점','카페':'카페','소매':'소매업','도소매':'도소매업','온라인 판매':'온라인 판매업','건설':'건설업','제조':'제조업','서비스':'서비스업','임대·렌탈':'임대·렌탈업'};
-    const iw=IND[one('bizType',1)]||'',det=T('bizType'),x=[];
-    if(iw)x.push(`대표님이 ${josa(iw,'을','를')} ${/음식점|카페/.test(iw)?'운영하고':'하고'} 계십니다.`);
+    const ws=G('bizType',1).map(v=>IND[v]).filter(Boolean),det=T('bizType'),x=[]; // 업종 여러 개: 음식점과 카페
+    const iw=ws.length<2?(ws[0]||''):ws.slice(0,-1).join(', ').replace(/([^,]+)$/,m=>josa(m,'과','와'))+' '+ws[ws.length-1];
+    if(iw)x.push(`대표님이 ${josa(iw,'을','를')} ${ws.every(w=>/음식점|카페/.test(w))?'운영하고':'하고'} 계십니다.`);
     if(det)x.push(iw?(/[다요]\.?$/.test(det)?fin(det):`세부 업종은 ${det}입니다.`):`대표님이 ${det} 사업을 하고 계십니다.`);
     const s0=one('sales',0);
     if(s0)x.push(`연 매출은 ${won(s0)} 수준${one('sales',1)==='올해'?'으로 예상하십니다.':'입니다.'}`);
@@ -1255,8 +1256,8 @@ function refreshSteps(){
     if(k!=='org')b.querySelector('i').textContent=st[k]?'✓':b.dataset.n;});
   document.querySelectorAll('.link').forEach(l=>l.classList.toggle('done',st[l.dataset.after]));
   const nc=$('#nCheck');if(nc)nc.textContent=n+'/'+CHECK_KEYS.length;
-  $('#seamText').textContent=full?'필기 칸 다시 보기 (체크리스트 70%)':hoMode?'필기 칸 원래대로':big?'체크리스트 줄이기':collapsed?`체크리스트 펼치기 (항목 ${n}/${CHECK_KEYS.length} 입력)`:'체크리스트 접기';
-  $('#seamMoreText').textContent=big?'화면 가득 펼치기':'크게 펼치기 (70%)';
+  $('#seamText').textContent=hoMode?'필기 칸 원래대로':collapsed?`체크리스트 펼치기 (항목 ${n}/${CHECK_KEYS.length} 입력)`:'체크리스트 접기';
+  { const z=collapsed?0:full?100:big?70:hoMode?-1:40;document.querySelectorAll('[data-size]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.size===z))); }
   $('#noteHint').hidden=!!(note&&note.strokes.length);
 }
 let layoutBusy=false,layoutT=0; // 칸 크기 전환 중엔 캔버스 크기 맞춤을 미뤘다가 끝나면 한 번만
@@ -1271,8 +1272,13 @@ function setCollapsed(v){
   if(v!==collapsed)layoutAnim();collapsed=v;if(v){setHo(false);setFull(false);setBig(false);}$('#work').classList.toggle('collapsed',v);$('#seam').setAttribute('aria-expanded',String(!v));
   focusStep=v?'ink':panelFocus();refreshSteps();
 }
-$('#seamMore').addEventListener('click',()=>{if(collapsed)setCollapsed(false);if(big)setFull(true);else setBig(true);focusStep=panelFocus();refreshSteps();});
-$('#seam').addEventListener('click',()=>{if(full){setFull(false);setBig(true);focusStep=panelFocus();refreshSteps();return;}if(big){setBig(false);focusStep=panelFocus();refreshSteps();return;}if(hoMode){setHo(false);focusStep=panelFocus();refreshSteps();return;}setCollapsed(!collapsed);});
+function setSize(z){ // 체크리스트 칸: 0(접기)·40(보통)·70·100(화면 가득)
+  if(z===0){setCollapsed(true);return;}
+  if(collapsed)setCollapsed(false);setHo(false);
+  if(z===100)setFull(true);else if(z===70){setFull(false);setBig(true);}else{setFull(false);setBig(false);}
+  focusStep=panelFocus();refreshSteps();}
+document.querySelector('.seamSize').addEventListener('click',e=>{const b=e.target.closest('[data-size]');if(b)setSize(+b.dataset.size);});
+$('#seam').addEventListener('click',()=>{if(hoMode){setHo(false);focusStep=panelFocus();refreshSteps();return;}setCollapsed(!collapsed);});
 if($('.steps'))$('.steps').addEventListener('click',e=>{
   const b=e.target.closest('.step');if(!b||!cur)return;const k=b.dataset.step;
   if(k==='org'){if(collapsed)setCollapsed(false);if(!full)setHo(true);focusStep='org';refreshSteps();
@@ -1949,7 +1955,7 @@ function rpData(l){
   /* 확인된 현황 */
   const facts=[],F=(a,b)=>{b=String(b||'').trim();if(b)facts.push([a,b]);};
   F('사업자 구분',corp?'법인사업자':(one('entity',0)||''));
-  F('업종·과세유형',[one('bizType',1),one('bizType',0),T('bizType')].filter(Boolean).join(' / '));
+  F('업종·과세유형',[G('bizType',1).join(', '),one('bizType',0),T('bizType')].filter(Boolean).join(' / '));
   F('개업',op.txt);
   F('사업장 소재지',d.address);
   const ae=ageEval(S('ceoAge'));
