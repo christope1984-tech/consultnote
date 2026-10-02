@@ -317,6 +317,11 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
 .lbl{display:block;margin:12px 0 6px;font-size:14px;color:var(--muted)}
 .lbl:first-of-type{margin-top:0}
 .note-s{margin:8px 0 0;font-size:13.5px;color:var(--muted)}
+.instWarn{margin:0 0 12px;padding:12px 14px;border-radius:10px;border:1px solid var(--warn-line);background:var(--warn-bg);font-size:14.5px;line-height:1.55}
+.instState{margin:0 0 10px;font-size:15px;font-weight:600}
+.instState.ok{color:var(--accent)}.instState.bad{color:var(--neg)}
+.instBtns{display:flex;flex-wrap:wrap;gap:8px}.instBtns:not(:has(button:not([hidden]))){display:none}
+.instHow{margin:12px 0 0;padding-left:22px;font-size:14.5px;line-height:1.7}
 
 .calPick{position:fixed;inset:0;z-index:40;display:flex;justify-content:center;align-items:flex-start;padding:max(56px,env(safe-area-inset-top)) 12px 24px;background:rgba(12,18,24,.42)}
 .calPick[hidden]{display:none}
@@ -486,6 +491,17 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
         <p class="note-s" style="margin:0 0 12px">일지는 이 태블릿 브라우저에만 저장돼요. 브라우저 데이터를 지우거나 기기를 바꾸면 사라지니, 백업 파일을 주기적으로 저장해 두세요.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="stBackup">백업 파일 저장</button><button class="btn" id="stRestore">백업에서 불러오기</button><button class="btn" id="btnCsv">CSV로 내보내기</button></div>
         <input type="file" id="stFile" accept=".json,application/json" hidden>
+      </div>
+      <div class="card" id="stApp"><h3>앱 설치</h3>
+        <p class="instWarn"><b>꼭 크롬(Chrome)에서 설치하세요.</b> 일지는 설치한 브라우저 안에 저장돼서, 삼성 인터넷이나 카카오톡 안에서 열린 화면으로 설치하면 크롬에 쓰던 일지가 안 보이고 앱으로도 제대로 실행되지 않아요.</p>
+        <p class="instState" id="instState" aria-live="polite"></p>
+        <div class="instBtns"><button class="btn primary" id="instGo" hidden>앱 설치하기</button><button class="btn primary" id="instChrome" hidden>크롬으로 열기</button><button class="btn" id="instCopy" hidden>주소 복사</button></div>
+        <ol class="instHow" id="instHow" hidden>
+          <li>크롬 오른쪽 위 <b>⋮</b> 메뉴를 눌러요.</li>
+          <li><b>앱 설치</b>를 누르고(없으면 <b>홈 화면에 추가 → 설치</b>) 확인해요.</li>
+          <li>홈 화면에 생긴 <b>상담일지</b> 아이콘으로 열면 주소창 없이 앱으로 실행돼요.</li>
+        </ol>
+        <p class="note-s">크롬에서 쓰던 일지는 앱으로 설치해도 그대로 이어져요. 이미 설치했다면 크롬 ⋮ 메뉴에 <b>앱에서 열기</b>가 보여요.</p>
       </div>
     </div></div>
   </section>
@@ -2504,13 +2520,42 @@ $('#btnCsv').addEventListener('click',()=>{
 function updateBanner(){
   const bn=$('#banner');let msg='';
   if(!settings.writer)msg='설정에서 작성자 이름을 먼저 넣어 주세요. 새 일지에 자동으로 들어가요.';
+  else if(!isApp()&&location.protocol==='https:')msg=browserKind()?'크롬에서 열어 앱으로 설치해 주세요. 지금 브라우저에 쓴 일지는 크롬 앱과 따로 저장돼요. (눌러서 방법 보기)':'앱으로 설치하면 주소창 없이 전체 화면으로 써요. 눌러서 설정 → 앱 설치로 가기';
   else if(logs.size&&Date.now()-(settings.lastBackup||0)>14*864e5)msg=settings.lastBackup?'마지막 백업 후 2주가 지났어요. 설정에서 백업 파일을 저장해 두세요.':'일지는 이 태블릿에만 있어요. 설정에서 백업 파일을 한 번 저장해 두세요.';
   bn.hidden=!msg;bn.textContent=msg;
 }
-$('#banner').addEventListener('click',openSettings);
+$('#banner').addEventListener('click',async()=>{await openSettings();if(settings.writer&&!isApp())$('#stApp').scrollIntoView({behavior:smooth(),block:'start'});});
 $('#btnSet').addEventListener('click',openSettings);
 $('#setBack').addEventListener('click',()=>{show('list');renderList();});
-async function openSettings(){
+/* ---------- 앱 설치 (크롬 전용 안내) ---------- */
+let instEvt=null;
+const isApp=()=>matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches||navigator.standalone===true;
+function browserKind(){const u=navigator.userAgent;
+  if(/KAKAOTALK/i.test(u))return'카카오톡 안 브라우저';if(/NAVER\(inapp|NAVER/i.test(u))return'네이버 앱 브라우저';
+  if(/SamsungBrowser/i.test(u))return'삼성 인터넷';if(/Whale/i.test(u))return'웨일';if(/EdgA?\//i.test(u))return'엣지';
+  if(/FBAN|FBAV|Instagram|Line\//i.test(u))return'앱 안 브라우저';if(/Firefox|FxiOS/i.test(u))return'파이어폭스';
+  if(/Chrome\//i.test(u)&&!/; wv\)/.test(u))return'';return'크롬이 아닌 브라우저';}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEvt=e;instUI();updateBanner();});
+window.addEventListener('appinstalled',()=>{instEvt=null;instUI('done');updateBanner();});
+function instUI(done){
+  const st=$('#instState');if(!st)return;const other=browserKind(),android=/Android/i.test(navigator.userAgent);
+  const set=(t,c)=>{st.textContent=t;st.className='instState'+(c?' '+c:'');};
+  $('#instGo').hidden=true;$('#instChrome').hidden=true;$('#instCopy').hidden=true;$('#instHow').hidden=true;
+  if(isApp())return set('앱으로 실행 중이에요. 설치는 끝났어요.','ok');
+  if(done==='done')return set("설치됐어요. 이제 홈 화면의 '상담일지' 아이콘으로 열어 주세요.",'ok');
+  if(other){set(`지금은 ${other}에서 열려 있어요. 크롬에서 열어야 설치할 수 있어요.`,'bad');
+    $('#instChrome').hidden=!android;$('#instCopy').hidden=false;return;}
+  if(location.protocol!=='https:')return set('https 주소(깃허브 페이지)에서 열어야 설치할 수 있어요.','bad');
+  if(instEvt){set('아래 버튼을 누르면 바로 설치돼요.');$('#instGo').hidden=false;return;}
+  set('크롬 메뉴에서 설치해 주세요.');$('#instHow').hidden=false;
+}
+$('#instGo').addEventListener('click',async()=>{if(!instEvt){instUI();return;}const e=instEvt;instEvt=null;
+  try{e.prompt();const r=await e.userChoice;if(r&&r.outcome==='accepted')instUI('done');else{toast('설치를 취소했어요. 다시 누르면 크롬 메뉴로 설치할 수 있어요.');instUI();}}catch{instUI();}});
+$('#instChrome').addEventListener('click',()=>{ // 안드로이드: 같은 주소를 크롬 앱으로 넘김
+  location.href=`intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;});
+$('#instCopy').addEventListener('click',async()=>{const u=location.origin+location.pathname;
+  try{await navigator.clipboard.writeText(u);toast('주소를 복사했어요. 크롬 주소창에 붙여넣어 열어 주세요.');}catch{prompt('이 주소를 복사해 크롬에서 열어 주세요.',u);}});
+async function openSettings(){instUI();
   $('#stKey').value=settings.apiKey;$('#stModel').value=settings.model;$('#stModelHQ').value=settings.modelHQ;$('#stWriter').value=settings.writer;$('#stOffice').value=settings.office||'';$('#stTel').value=settings.tel||'';$('#stCal').value=settings.calUrl||'';
   $('#stLine').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===(settings.lineGap||'auto'))));
   document.querySelectorAll('.seg[data-set]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===settings[g.dataset.set]))));
