@@ -80,12 +80,17 @@ button,input,textarea,select{font:inherit;color:inherit}
 
 /* ---------- 상담 화면 ---------- */
 .sbar{flex:none}
-.shead{display:flex;align-items:center;gap:12px;padding:8px 16px 10px 6px;background:var(--surface);border-bottom:1px solid var(--line)}
+.shead{display:flex;flex-wrap:wrap;align-items:center;gap:0 12px;padding:8px 16px 10px 6px;background:var(--surface);border-bottom:1px solid var(--line)}
 .shead input{min-width:0;min-height:52px;padding:0 2px;border:0;border-bottom:1.5px solid var(--line);border-radius:0;background:transparent}
 .shead input:focus{outline:none;border-bottom-color:var(--accent)}
 .shead input::placeholder{color:var(--muted);opacity:.7}
 .h-company,.h-ceo{flex:1 1 0;font-size:20px;font-weight:700;letter-spacing:-.01em}
 .h-date{flex:none;width:158px;font-size:16px;font-variant-numeric:tabular-nums}
+.hsub{flex:1 1 100%;display:flex;align-items:center;gap:12px;margin-left:56px;min-width:0}
+.shead .hsub input{min-height:42px;font-size:16px}
+.h-tel{flex:0 1 210px;font-variant-numeric:tabular-nums}
+.h-addr{flex:1 1 0}
+.h-crowd button{min-height:36px;min-width:62px;font-size:14px}
 
 .steps{display:flex;align-items:center;padding:6px 16px 10px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
 .step{display:flex;align-items:center;gap:8px;min-height:46px;padding:0 10px 0 4px;border:0;border-radius:21px;background:transparent;color:var(--muted);font-size:15px;font-weight:500;cursor:pointer;white-space:nowrap}
@@ -226,6 +231,7 @@ button,input,textarea,select{font:inherit;color:inherit}
   .shead{flex-wrap:wrap;gap:4px 10px}
   .h-company{flex:1 1 40%;order:2}
   .h-ceo{flex:1 1 40%;order:3}.h-date{order:4;width:150px}
+  .hsub{order:5;margin-left:0;flex-wrap:wrap;gap:4px 10px}.h-tel{flex:1 1 40%}.h-addr{flex:1 1 55%}
   .steps{padding-left:6px;padding-right:8px}.step{padding-right:6px;font-size:14px}.step em{display:none}
   .grp{grid-template-columns:78px 1fr}
   .frow.two,.frow.one{grid-template-columns:78px 1fr}.frow.addr{grid-template-columns:78px 1fr}.frow.addr .yn{grid-column:2}
@@ -423,6 +429,11 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
       <input class="h-date" data-key="visitDate" type="date" aria-label="방문일">
       <button class="btn primary" id="sCal" style="flex:none">일정 불러오기</button>
       <span class="status" id="sStatus" aria-live="polite"></span>
+      <div class="hsub">
+        <input class="h-tel" data-key="phone" type="tel" inputmode="tel" placeholder="연락처" aria-label="연락처" autocomplete="off">
+        <input class="h-addr" data-key="address" placeholder="주소" aria-label="주소" autocomplete="off" spellcheck="false">
+        <div class="yn h-crowd" role="group" aria-label="과밀억제권역 여부"><button type="button" data-crowd="과밀" aria-pressed="false">과밀</button><button type="button" data-crowd="비과밀" aria-pressed="false">비과밀</button></div>
+      </div>
     </header>
     <div class="work" id="work">
       <div class="panel" id="panel"></div>
@@ -875,9 +886,6 @@ function buildPanel(){
     <div class="item entityItem" data-item="entity"><div class="ihead"><h3>사업자 구분</h3></div>${pickHTML('entity')}</div>
     <div class="item only-indiv only-conv" data-item="convPlan"><div class="ihead"><h3>법인전환 계획</h3>${incHTML('convPlan')}</div>${pickHTML('convPlan')}</div>
     <div class="item" data-item="bizType"><div class="ihead"><h3>업종/형태</h3>${incHTML('bizType')}</div>${pickHTML('bizType')}</div>
-    <div class="frow one"><label for="f_phone">연락처</label><input class="fin" id="f_phone" data-key="phone" type="tel" inputmode="tel" autocomplete="off"></div>
-    <div class="frow addr"><label for="f_address">주소</label><input class="fin" id="f_address" data-key="address" autocomplete="off">
-      <div class="yn" role="group" aria-label="과밀억제권역 여부">${['과밀','비과밀'].map(v=>`<button type="button" data-crowd="${v}" aria-pressed="false">${v}</button>`).join('')}</div></div>
     ${INFO_ITEMS.map(([k,n])=>`<div class="item${PICK[k].only?' only-'+PICK[k].only:''}${PICK[k].nopre?' no-pre':''}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}</div>`).join('')}
   </section>
   <section id="secItems"><h2>항목</h2>
@@ -1054,6 +1062,9 @@ $('#panel').addEventListener('click',e=>{
   else return;
   syncPanel();markDirty('log');refreshSteps();
 });
+document.querySelector('#view-sheet .shead').addEventListener('click',e=>{ // 헤더 둘째 줄 과밀/비과밀
+  const cr=e.target.closest('[data-crowd]');if(!cr||!cur)return;const v=cr.dataset.crowd;
+  cur.fields.overcrowd=cur.fields.overcrowd===v?'':v;syncPanel();markDirty('log');refreshSteps();});
 $('#view-sheet').addEventListener('input',e=>{
   const t=e.target;if(!cur)return;
   if(t.dataset.key)setField(t.dataset.key,t.value);
