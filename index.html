@@ -152,6 +152,9 @@ button,input,textarea,select{font:inherit;color:inherit}
 .frow.one{grid-template-columns:96px 1fr}
 .frow.addr{grid-template-columns:96px 1fr auto}
 .nums{display:flex;flex-wrap:wrap;gap:8px 20px}
+.nums.c2{display:grid;grid-template-columns:repeat(2,max-content)} /* 한 줄에 2개씩 줄 맞춤 */
+.nums.c2 .nl{min-width:4.8em} /* 라벨 폭 통일 → 칸 세로 정렬 */
+@media (max-width:640px){.nums.c2{grid-template-columns:max-content}}
 .num{display:flex;align-items:center;gap:6px}
 .nl{min-width:54px;font-size:14.5px;font-weight:600}
 .nb{width:44px;height:44px;flex:none;display:grid;place-items:center;padding:0;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:21px;line-height:1;cursor:pointer}
@@ -744,7 +747,7 @@ const PICK={
   cardReg:{nopre:1,groups:[{t:'홈택스 사업용 카드',o:['등록 완료','미등록','사업용 카드 없음']}],memo:'메모',only:'indiv'},
   rightsContract:{groups:[{t:'권리금',o:['권리금 있음','권리금 없음'],only:'hid'},{t:'계약서',o:['계약서 있음','계약서 없음'],hide:[0,'권리금 없음']},{t:'세금 처리',o:['세금계산서 발행','기타소득 원천징수','미처리'],hide:[0,'권리금 없음']},{t:'권리금 금액',o:['1천만 미만','1천~3천만','3천~5천만','5천만~1억','1억 이상'],hide:[0,'권리금 없음']}],memo:'금액 메모'},
   loanPlan:{groups:[{t:'대출 계획',o:['계획 있음','계획 없음']},{t:'금액',o:['3천만','5천만','1억','1억 이상'],hide:[0,'계획 없음']},{t:'종류',o:['정책자금 대출','부동산 대출','신용 대출','시설·장비 대출'],m:1,hide:[0,'계획 없음']}],memo:'대출 메모',ph:'예: 내년 상반기 매장 확장 때'},
-  vehicle:{nums:[['own','개인 명의'],['corp','법인 명의'],['lease','리스'],['rent','렌트']],numsLabel:'대수',numsSub:'명의별',numsUnit:'대',numsSkip0:1,groups:[{t:'해당 없음',o:['차량 없음']}],memo:'차종 메모',v:3},
+  vehicle:{nums:[['own','개인 명의'],['corp','법인 명의'],['rent','렌트'],['lease','리스']],numsCols:2,numsLabel:'대수',numsSub:'명의별',numsUnit:'대',numsSkip0:1,groups:[{t:'해당 없음',o:['차량 없음']}],memo:'차종 메모',v:3},
   /* 영업 정보 */
   taxSim:{nopre:1,custom:1,only:'indiv',groups:[{t:'놓치고 있던 절세',o:TX_ITEMS,m:1},{t:'지역',o:['수도권','수도권 밖']},{t:'노란우산 연 납입',o:['200만','300만','400만','500만','600만']},{t:'중소기업특별세액감면',o:['5%','10%','15%','20%','30%']},{t:'창업감면율',o:['25%','50%','75%','100%']}],
     steps:[{n:'e',t:'억',unit:'억',max:9,len:1,z:1},{n:'c',t:'천만',unit:'천만',max:9,len:1,z:1},{n:'b',t:'백만',unit:'백만',max:9,len:1,z:1},{n:'ny',t:'청년 등',unit:'명',max:30,len:2,z:1,nl:1},{n:'gj',t:'경조사비',unit:'백만 원',max:12,len:2,z:1},{n:'no',t:'청년 외',unit:'명',max:30,len:2,z:1,nl:1}]},
@@ -976,7 +979,7 @@ function txUI(){const el=$('#txOut');if(!el||!cur)return;const s=selOf('taxSim')
     +(r.ny||r.no?`<p class="txNote">지역 ${r.reg}${r.regAuto?'(주소 기준)':''} · 1명 늘리면 3년간 청년 등 ${txWon(TX_HIRE.y[r.ri].reduce((a,b)=>a+b))}, 청년 외 ${txWon(TX_HIRE.o[r.ri].reduce((a,b)=>a+b))} (인원 유지 시, 최저한세 전)</p>`:'')
     +(y1.alt?`<p class="txNote">창업감면과 ${y1.alt==='창업감면'?'통합고용·중소기업특별세액감면':y1.alt}은 함께 받을 수 없어 유리한 쪽(${y1.alt})으로 계산했어요.</p>`:'');}
 const icls=k=>(PICK[k].only?' only-'+PICK[k].only:'')+(PICK[k].nopre?' no-pre':'');
-const VEH_K=[['own','개인 명의'],['corp','법인 명의'],['lease','리스'],['rent','렌트']];
+const VEH_K=[['own','개인 명의'],['corp','법인 명의'],['rent','렌트'],['lease','리스']];
 const vehCnt=s=>VEH_K.reduce((a,[x])=>a+(+((s&&s.n||{})[x])||0),0);
 const vehTxt=s=>VEH_K.filter(([x])=>+((s&&s.n||{})[x])).map(([x,t])=>`${t} ${+s.n[x]}대`).join(', ');
 const SH_WHO=['배우자','자녀','부모','형제자매','친척','지인','직원','투자자','기타'];
@@ -1023,7 +1026,7 @@ function grpHTML(k,c,pred){return c.groups.map((g,i)=>!pred(g)?'':`<div class="g
 function pickHTML(k){
   const c=PICK[k];if(c.custom)return taxSimHTML(k);
   const nL=c.numsLabel||'인원',nS=c.numsSub===undefined?'대표 제외':c.numsSub,nU=c.numsUnit||'명';
-  return (c.nums?`<div class="grp"><span class="gl">${nL}${nS?`<small>${nS}</small>`:''}</span><div class="nums">${c.nums.map(([n,t,gi])=>`<div class="num"><span class="nl">${t}</span>`
+  return (c.nums?`<div class="grp"><span class="gl">${nL}${nS?`<small>${nS}</small>`:''}</span><div class="nums${c.numsCols?' c'+c.numsCols:''}">${c.nums.map(([n,t,gi])=>`<div class="num"><span class="nl">${t}</span>`
       +`<button type="button" class="nb" data-k="${k}" data-n="${n}" data-inc="-1" aria-label="${t} ${nL} 줄이기">−</button>`
       +`<input class="fin numin" data-k="${k}" data-role="n" data-n="${n}" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="–" aria-label="${t} ${nL}">`
       +`<button type="button" class="nb" data-k="${k}" data-n="${n}" data-inc="1" aria-label="${t} ${nL} 늘리기">+</button><span class="unit">${nU}</span>`
