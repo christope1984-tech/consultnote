@@ -618,7 +618,7 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
           <p class="note-s" style="margin:0 0 10px">대표님께 함께 안내할 내용을 고르세요. 고른 것만 '보완점' 카드로 들어가요.</p>
           <div id="rpTips" class="rpTips"></div></div>
         <div class="card" id="rpWbCard" hidden><h3>여성기업 정책자금 비교</h3>
-          <p class="note-s" style="margin:0 0 10px">'안내한 내용'에 여성기업확인서를 고르면 요약에 이자 비교표가 들어가요. 금리는 신청 시점 공고에 맞춰 고쳐 주세요.</p>
+          <p class="note-s" style="margin:0 0 10px">'안내한 내용'에 여성기업확인서를 고르면 검토 의견의 여성기업 확인서 아래에 이자 비교표가 붙어요. 금리는 신청 시점 공고에 맞춰 고쳐 주세요.</p>
           <div class="rpWb"><label>대출 금액<span><input class="fin" id="wbAmt" inputmode="numeric" placeholder="3000"> 만원</span></label>
           <label>일반 금리<span><input class="fin" id="wbBase" inputmode="decimal" placeholder="3.5"> %</span></label>
           <label>여성기업 우대<span><input class="fin" id="wbCut" inputmode="decimal" placeholder="1"> %p</span></label></div></div>
@@ -2622,8 +2622,8 @@ function rpBlocks(l){
         g.font=rpF(500,22);g.fillStyle=a[0]>=0.5?pnCol(a[0]):RP_MU;R2(g,a[0]>=0.5?S(txWon(a[0])):'-',ox+W-330,ty+28);g.font=rpF(700,22);g.fillStyle=pnCol(a[0]+a[1]+a[2]);R2(g,S(txWon(a[0]+a[1]+a[2])),ox+W,ty+28);ty+=48;});};
       if(txSec){rpBlur(c,X-12,yy-4,W+24,rows.length*48,g=>tbl(g,12,4,1));rpLock(c,X+W/2,yy-4+rows.length*24);}else tbl(c,X,yy,0);yy+=rows.length*48;
       c.font=rpF(400,19);c.fillStyle=RP_MU;rpText(c,this.F,X,yy+40,30);}});}
-  /* 여성기업 확인서 → 정책자금 이자 비교 */
-  if(R.wb){const w=R.wb,pf=v=>(Math.round(v*100)/100)+'%',wbSec=rpIsSec(l,'tip_womenBiz');
+  /* 여성기업 확인서 → 정책자금 이자 비교 (검토 의견의 여성기업 확인서 카드 바로 아래에 붙임) */
+  let wbDone=0;const wbPush=()=>{if(!R.wb||wbDone)return;wbDone=1;const w=R.wb,pf=v=>(Math.round(v*100)/100)+'%',wbSec=rpIsSec(l,'tip_womenBiz');
     const rows=[['확인서 없을 때',w.A,0],['여성기업 확인서',w.B,1]],dif={m:w.A.m-w.B.m,first:w.A.first-w.B.first,tot:w.A.tot-w.B.tot};
     const note='일반경영안정자금 2년 거치·3년 분할상환 기준 예시입니다. 우대 이율은 대표님 개인 상황(신용도·업력 등)과 지역 신용보증재단 상황에 따라 달라질 수 있으며, 정책자금 금리도 분기마다 바뀌므로 신청 시점 기준으로 다시 안내해 드립니다.';
     B.push({h(c){c.font=rpF(400,19);this.F=rpWrap(c,note,RP_CW-80);this.hh=120+50+52*3+14+this.F.length*30+30;return this.hh+28;},draw(c,y){
@@ -2638,28 +2638,24 @@ function rpBlocks(l){
         rows.forEach(([lb,v,on])=>row([lb,pf(v.pct),wonF(v.m),wonF(v.first),wonF(v.tot)],on,on?'#F4F7F8':'',on?RP_TX:RP_MU));
         row(['차이','−'+pf(w.cut).replace('%','%p'),'−'+wonF(dif.m),'−'+wonF(dif.first),'−'+wonF(dif.tot)],1,'#E4F0EB',pnCol(dif.tot));};
       if(wbSec){rpBlur(c,X-12,yy,W+24,52*3,g=>tblW(g,12,0,1));rpLock(c,X+W/2,yy+52*1.5);}else tblW(c,X,yy,0);yy+=52*3;
-      c.font=rpF(400,19);c.fillStyle=RP_MU;rpText(c,this.F,X,yy+40,30);}});}
-  /* 저희가 챙겨 드릴 일 (요약) */
+      c.font=rpF(400,19);c.fillStyle=RP_MU;rpText(c,this.F,X,yy+40,30);}});};
+  /* 저희가 챙겨 드릴 일 → 맨 끝 '맡겨 주시면 체계적으로 관리해 드립니다'에 합침 */
+  let actRows=[];
   { const txK=new Set(tx?tx.items.map(i=>TX_TIP[i[0]]).filter(Boolean).map(x=>'tip_'+x):[]);
     const acts=[...(tx?tx.items.map(([k,a])=>({lv:'tip',lb:'절세',t:k+' 적용',r:'3년 약 '+txWon(a[0]+a[1]+a[2]),sec:txSec})):[]),...iss.filter(x=>!txK.has(x.id)).map(x=>({lv:x.lv,lb:RP_LV[x.lv][0],t:x.t,sec:x.sec}))];
-    if(acts.length){const MAX=12,show=acts.slice(0,MAX);
-      const more=acts.length-show.length;
-      B.push({h:()=>70+show.length*54+58,draw(c,y){c.font=rpF(700,30);c.fillStyle=RP_TX;c.fillText('맡겨 주시면 챙겨 드릴 일',RP_X,y+42);y+=70;
-        show.forEach(a=>{const col=a.lb==='절세'?RP_ACC:RP_LV[a.lv][1];c.font=rpF(600,18);const bw=c.measureText(a.lb).width+24;
-          c.fillStyle=col;rpRound(c,RP_X,y+10,bw,30,15);c.fill();c.fillStyle='#fff';c.fillText(a.lb,RP_X+12,y+31);
-          if(a.sec){c.font=rpF(500,24);const tt=rpScr(a.t),tw=c.measureText(tt).width;rpBlur(c,RP_X+bw+16,y+8,tw,36,g=>{g.font=rpF(500,24);g.fillStyle=RP_TX;g.fillText(tt,0,26);});
-            const lx=RP_X+bw+16+Math.max(tw,140)/2;rpLock(c,lx,y+26,1);}
-          else{c.font=rpF(500,24);c.fillStyle=RP_TX;c.fillText(a.t,RP_X+bw+16,y+34);}
-          if(a.r){c.font=rpF(700,23);c.fillStyle=RP_UP;c.fillText(a.r,RP_X+RP_CW-c.measureText(a.r).width,y+34);}
-          c.fillStyle='#E8EDF0';c.fillRect(RP_X,y+52,RP_CW,1);y+=54;});
-        c.font=rpF(400,21);c.fillStyle=RP_MU;c.fillText((more>0?`외 ${more}건 포함, `:'')+'항목별 자세한 내용은 이어서 정리했습니다.',RP_X,y+38);}});
-      B.push({brk:1,h:()=>0,draw(){}});}}
+    actRows=acts.map(a=>({h:()=>54,draw(c,y){const col=a.lb==='절세'?RP_ACC:RP_LV[a.lv][1];c.font=rpF(600,18);const bw=c.measureText(a.lb).width+24;
+      c.fillStyle=col;rpRound(c,RP_X,y+10,bw,30,15);c.fill();c.fillStyle='#fff';c.fillText(a.lb,RP_X+12,y+31);
+      if(a.sec){c.font=rpF(500,24);const tt=rpScr(a.t),tw=c.measureText(tt).width;rpBlur(c,RP_X+bw+16,y+8,tw,36,g=>{g.font=rpF(500,24);g.fillStyle=RP_TX;g.fillText(tt,0,26);});
+        const lx=RP_X+bw+16+Math.max(tw,140)/2;rpLock(c,lx,y+26,1);}
+      else{c.font=rpF(500,24);c.fillStyle=RP_TX;c.fillText(a.t,RP_X+bw+16,y+34);}
+      if(a.r){c.font=rpF(700,23);c.fillStyle=RP_UP;c.fillText(a.r,RP_X+RP_CW-c.measureText(a.r).width,y+34);}
+      c.fillStyle='#E8EDF0';c.fillRect(RP_X,y+52,RP_CW,1);}}));}
   let no=0;
-  const head=t=>{const k=++no;B.push({head:1,h:()=>90,draw(c,y){c.font=rpF(700,32);c.fillStyle=RP_ACC;c.fillText(k+'. '+t,RP_X,y+44);c.fillStyle=RP_ACC;c.fillRect(RP_X,y+60,56,4);}});};
+  const head=(t,keep)=>{const k=++no;B.push({head:1,keep,h:()=>90,draw(c,y){c.font=rpF(700,32);c.fillStyle=RP_ACC;c.fillText(k+'. '+t,RP_X,y+44);c.fillStyle=RP_ACC;c.fillRect(RP_X,y+60,56,4);}});};
   const bullets=a=>a.forEach(t=>B.push({h(c){c.font=rpF(400,24);this.L=rpWrap(c,t,RP_CW-40);return this.L.length*38+16;},draw(c,y){
     c.fillStyle=RP_ACC;c.beginPath();c.arc(RP_X+10,y+20,5,0,Math.PI*2);c.fill();c.font=rpF(400,24);c.fillStyle=RP_TX;rpText(c,this.L,RP_X+36,y+28,38);}}));
   /* 1. 현황 */
-  if(R.facts.length){head('사업 현황');
+  if(R.facts.length){head('사업 현황',R.facts.length);
     R.facts.forEach(([k,v],i)=>B.push({h(c){c.font=rpF(400,24);this.L=rpWrap(c,v,RP_CW-270);return this.L.length*38+38;},draw(c,y){
       const h=this.L.length*38+38;if(i%2===0){c.fillStyle='#F4F7F8';c.fillRect(RP_X,y,RP_CW,h);}
       c.font=rpF(600,23);c.fillStyle=RP_MU;c.fillText(k,RP_X+20,y+46);c.font=rpF(400,24);c.fillStyle=RP_TX;rpText(c,this.L,RP_X+260,y+46,38);}}));
@@ -2680,7 +2676,7 @@ function rpBlocks(l){
         rpBlur(c,x0,yy,w,this.hb,g=>{let gy=0;g.font=rpF(700,28);g.fillStyle=RP_TX;rpText(g,T,0,gy+28,42);gy+=T.length*42+10;
           if(Bd.length){g.font=rpF(400,23);g.fillStyle='#3C4852';rpText(g,Bd,0,gy+26,36);gy+=Bd.length*36+14;}g.font=rpF(600,23);g.fillStyle=RP_ACC;rpText(g,A,0,gy+26,36);});
         rpLock(c,x0+w/2,yy+this.hb/2);}});
-    iss.forEach((x,i)=>B.push(x.sec?secCard(x):{h(c){const w=RP_CW-76;c.font=rpF(700,28);this.T=rpWrap(c,x.t,w-170);c.font=rpF(500,24);this.N=x.now?rpWrap(c,x.now,w):[];c.font=rpF(400,23);this.Bd=st.brief?[]:rpWrap(c,x.body,w);c.font=rpF(600,23);this.A=rpWrap(c,'→ '+x.act,w);
+    iss.forEach((x,i)=>{B.push(x.sec?secCard(x):{h(c){const w=RP_CW-76;c.font=rpF(700,28);this.T=rpWrap(c,x.t,w-170);c.font=rpF(500,24);this.N=x.now?rpWrap(c,x.now,w):[];c.font=rpF(400,23);this.Bd=st.brief?[]:rpWrap(c,x.body,w);c.font=rpF(600,23);this.A=rpWrap(c,'→ '+x.act,w);
         this.hh=36+this.T.length*42+12+(this.N.length?this.N.length*37+14:0)+(this.Bd.length?this.Bd.length*36+18:4)+this.A.length*36+30;return this.hh+34;},
       draw(c,y){const[lb,col]=RP_LV[x.lv],h=this.hh,x0=RP_X+48;
         c.fillStyle='#FFFFFF';c.strokeStyle=RP_LN;c.lineWidth=2;rpRound(c,RP_X,y,RP_CW,h,14);c.fill();c.stroke();
@@ -2689,12 +2685,17 @@ function rpBlocks(l){
         c.font=rpF(700,28);c.fillStyle=RP_TX;rpText(c,this.T,x0+bw+16,yy+23,42);yy+=this.T.length*42+12;
         c.font=rpF(500,24);c.fillStyle=RP_TX;rpText(c,this.N,x0,yy+26,37);if(this.N.length)yy+=this.N.length*37+14;
         c.font=rpF(400,23);c.fillStyle='#3C4852';rpText(c,this.Bd,x0,yy+26,36);yy+=this.Bd.length?this.Bd.length*36+18:4;
-        c.font=rpF(600,23);c.fillStyle=RP_ACC;rpText(c,this.A,x0,yy+26,36);}}));
+        c.font=rpF(600,23);c.fillStyle=RP_ACC;rpText(c,this.A,x0,yy+26,36);}});
+      if(x.id==='tip_womenBiz')wbPush();});
     gap(12);}
-  if(R.guided.length){head('상담 중 안내드린 내용');bullets(R.guided);gap(40);}
+  if(R.guided.length){head('상담 중 안내드린 내용');bullets(R.guided);gap(R.wb&&!wbDone?24:40);}
+  if(R.wb&&!wbDone){wbPush();gap(12);} // 여성기업 확인서 카드가 없으면 안내 내용 아래에
   const memo=String(st.memo||'').trim();
   if(memo){head('추가 의견');lines(memo).forEach(t=>B.push({h(c){c.font=rpF(400,24);this.L=rpWrap(c,t,RP_CW);return this.L.length*38+12;},draw(c,y){c.font=rpF(400,24);c.fillStyle=RP_TX;rpText(c,this.L,RP_X,y+28,38);}}));gap(40);}
-  head('맡겨 주시면 체계적으로 관리해 드립니다');bullets(R.svc);gap(44);
+  head('맡겨 주시면 체계적으로 관리해 드립니다');
+  if(actRows.length){const sub=t=>B.push({h:()=>58,draw(c,y){c.font=rpF(700,24);c.fillStyle=RP_MU;c.fillText(t,RP_X,y+34);}});
+    sub('이번 검토에서 챙겨 드릴 일');actRows.forEach(b=>B.push(b));gap(30);sub('기본으로 함께 관리해 드리는 일');}
+  bullets(R.svc);gap(44);
   /* 맺음 */
   const disc='이 보고서는 상담 때 말씀해 주신 내용을 바탕으로 한 사전 검토입니다. 실제 장부와 신고 자료를 확인하면 내용이 달라질 수 있으며, 최종 판단은 자료를 검토한 뒤 다시 안내해 드립니다. 대표님 사업장을 위해 작성한 자료이니 무단 복제나 외부 제공은 삼가 주시기 바랍니다.';
   const contact=[office,writer,tel].filter(Boolean).join('  ·  ');
@@ -2713,7 +2714,8 @@ function rpPaint(l){
     if(b.brk){if(pages.length===1&&y>RP_TOP)page();return;}
     if(b.pg){if(y>RP_TOP)page();return;} // 새 쪽에서 시작 // 요약이 첫 장에 다 들어갔을 때만 쪽 나눔
     if(b.gap){if(y===RP_TOP)return;if(y+h>RP_BOT){page();return;}y+=h;return;}
-    let need=h;if(b.head&&B[i+1]&&!B[i+1].gap)need+=B[i+1].h(c); // 제목만 페이지 끝에 남지 않게
+    let need=h;if(b.head&&B[i+1]&&!B[i+1].gap){need+=B[i+1].h(c); // 제목만 페이지 끝에 남지 않게
+      if(b.keep){let all=h;for(let k=1;k<=b.keep&&B[i+k];k++)all+=B[i+k].h(c);if(all<=RP_BOT-RP_TOP)need=all;}} // 사업 현황 표는 쪼개지지 않게
     if(y+need>RP_BOT&&y>RP_TOP){page();h=b.h(c);}
     b.draw(c,y);y+=h;});
   pages.forEach((cv,i)=>{const g=cv.getContext('2d');g.fillStyle=RP_LN;g.fillRect(RP_X,RP_H-92,RP_CW,1);g.font=rpF(400,19);g.fillStyle='#8A96A0';
