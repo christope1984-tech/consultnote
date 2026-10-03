@@ -696,6 +696,9 @@ function txCalc(l){
   const smeR=has('중소기업특별세액감면')?(parseInt((g[3]||[])[0])||10)/100:0;
   const rr=parseInt((((sel.relief||{}).g||[])[0]||[])[0]);
   const stR=has('창업중소기업 세액감면')?(parseInt((g[4]||[])[0])||rr||50)/100:0,bkOn=has('기장세액공제');
+  /* 창업감면은 5년(시작 연도 포함)만: 적용 시작 칩 → 없으면 개업연도(개업 첫해 결손이면 다음 해부터로 봄). 1년차 = 올해 기준이면 올해, 아니면 작년 */
+  const op=rpOpenInfo(l),rg=((sel.relief||{}).g)||[],sy0=parseInt(((rg[2]||[])[0])||'',10),stS=sy0?2000+sy0:op.Y&&!op.fut?op.Y+(((rg[1]||[])[0])==='결손'?1:0):0,
+    stEnd=stR&&stS?stS+4:0,by=new Date().getFullYear()-(txThis(s)?0:1),stIn=i=>!stEnd||by+i<=stEnd;
   const year=(hire,useSt)=>{
     const G0=gjSave>=0.5?[['경조사비',gjSave]]:[];
     if(useSt&&stR===1)return{fin:0,P:[...G0,['창업중소기업 세액감면',Tg]],blk:0,blkHire:0}; // 100% 감면은 최저한세 대상 아님
@@ -709,10 +712,10 @@ function txCalc(l){
     if(bkOn){const bk=Math.min(T1*.2,100,tax);if(bk>=0.5){P.push(['기장세액공제',bk]);tax-=bk;}}
     return{fin:Math.max(0,tax),P,blk,blkHire};};
   const Y=[0,1,2].map(i=>{const hire=ny*TX_HIRE.y[ri][i]+no*TX_HIRE.o[ri][i];let r=year(hire,false),alt='';
-    if(stR){const b=year(hire,true);if(!(hire||smeR))r=b;else if(b.fin<r.fin){r=b;alt='창업감면';}else alt=hire?'통합고용':'중소기업특별세액감면';}
+    if(stR&&stIn(i)){const b=year(hire,true);if(!(hire||smeR))r=b;else if(b.fin<r.fin){r=b;alt='창업감면';}else alt=hire?'통합고용':'중소기업특별세액감면';}
     return{...r,hire,alt,save:T0-r.fin};});
   const items=[];Y.forEach((y,i)=>y.P.forEach(([k,a])=>{let it=items.find(x=>x[0]===k);if(!it)items.push(it=[k,[0,0,0]]);it[1][i]+=a;}));
-  return{th:txThis(s),T0,B0,MT,reg,regAuto:!(g[1]||[])[0],ny,no,ri,Y,items,tot:Y.reduce((a,y)=>a+y.save,0),blk:Y.reduce((a,y)=>a+y.blk,0),blkHire:Y.reduce((a,y)=>a+y.blkHire,0)};
+  return{th:txThis(s),by,stR,stFin:stEnd,stEnd:stEnd&&stEnd<by+2?stEnd:0,T0,B0,MT,reg,regAuto:!(g[1]||[])[0],ny,no,ri,Y,items,tot:Y.reduce((a,y)=>a+y.save,0),blk:Y.reduce((a,y)=>a+y.blk,0),blkHire:Y.reduce((a,y)=>a+y.blkHire,0)};
 }
 const CERTS=['벤처기업','이노비즈','메인비즈','여성기업','ISO'];
 /* 법인 체크리스트 (법인사업자일 때만 보임) */
@@ -977,6 +980,7 @@ function txUI(){const el=$('#txOut');if(!el||!cur)return;const s=selOf('taxSim')
     +`<p class="txNote">${r.items.map(([k,a])=>`${k} ${a.some((x,i)=>i&&x!==a[0])?a.map(x=>txWon(x).replace(' 원','')).join(' / '):txWon(a[0])+(a[1]?'씩':'')}`).join(' · ')}</p>`
     +`<p class="txNote">최저한세 ${txWon(r.MT)}: 감면·공제를 받아도 이 아래로는 줄지 않아요.${r.blk>=0.5?` 최저한세에 걸려 3년간 ${txWon(r.blk)}은 못 받아요`+(r.blkHire>=0.5?`(통합고용분 ${txWon(r.blkHire)}은 10년간 이월).`:'.'):''}</p>`
     +(r.ny||r.no?`<p class="txNote">지역 ${r.reg}${r.regAuto?'(주소 기준)':''} · 1명 늘리면 3년간 청년 등 ${txWon(TX_HIRE.y[r.ri].reduce((a,b)=>a+b))}, 청년 외 ${txWon(TX_HIRE.o[r.ri].reduce((a,b)=>a+b))} (인원 유지 시, 최저한세 전)</p>`:'')
+    +(r.stEnd?`<p class="txNote">창업감면은 ${r.stEnd}년까지라 그 뒤 해는 빼고 계산했어요.</p>`:'')
     +(y1.alt?`<p class="txNote">창업감면과 ${y1.alt==='창업감면'?'통합고용·중소기업특별세액감면':y1.alt}은 함께 받을 수 없어 유리한 쪽(${y1.alt})으로 계산했어요.</p>`:'');}
 const icls=k=>(PICK[k].only?' only-'+PICK[k].only:'')+(PICK[k].nopre?' no-pre':'');
 const VEH_K=[['own','개인 명의'],['corp','법인 명의'],['rent','렌트'],['lease','리스']];
@@ -1293,7 +1297,8 @@ const josa=(w,a,b)=>w+(batchim(w)?a:b);
 const roJ=w=>{const h=String(w).trim().slice(-1).charCodeAt(0),j=h>=0xAC00&&h<=0xD7A3?(h-0xAC00)%28:0;return w+(j===0||j===8?'로':'으로');}; // 받침 없음·ㄹ → 로
 const fin=t=>{t=String(t||'').trim();return !t?'':/[.!?…。]$/.test(t)?t:t+'.';};
 const lines=t=>String(t||'').split(/\n+/).map(x=>x.trim().replace(/^[-•·]\s*/,'')).filter(Boolean);
-const won=t=>/[만억]$/.test(t)?t+' 원':t.replace(/([만억])( )/,'$1 원$2');
+const BIZ_UP={'건설':'건설업','제조':'제조업','서비스':'서비스업','소매':'소매업','도소매':'도소매업','임대·렌탈':'임대·렌탈업','운수':'운수업','도매':'도매업'},bizUp=v=>BIZ_UP[v]||v;
+const won=t=>/(미만|이상)$/.test(t)?t.replace(/([만억])\s*(미만|이상)$/,'$1 원 $2'):/[만억]$/.test(t)?t+' 원':t.replace(/([만억])( )/,'$1 원$2'); // '100만 미만' → '100만 원 미만'
 function andList(a){return a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' 및 '+a[a.length-1];}
 /* 인수인계서 포함/제외: fields.hoEx[k]=true면 문장에서 뺌. 따로 안 정했으면 기본값 */
 const HO_EX_DEFAULT={prevAgent:true};
@@ -2161,23 +2166,26 @@ const RP_LV={high:['우선 확인','#B3261E'],mid:['검토 필요','#A86A12'],in
 const RP_ORDER={high:0,mid:1,info:2,tip:3};
 /* 사무장이 골라 넣는 보완점 카드. now(h)는 일지 값으로 첫 줄을 만듦(없으면 생략) */
 const RP_TIPS=[
-  {id:'contract',k:'근로계약서',t:'근로계약서 작성',prep:'직원 근로계약서',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
+  {id:'contract',k:'근로계약서',t:'근로계약서 작성',prep:'직원 근로계약서',now:h=>h.staffNow,
     body:'근로계약서를 쓰지 않거나 직원에게 한 부를 내주지 않으면 근로기준법에 따라 **최대 500만 원의 벌금**이 나올 수 있습니다. 과태료가 아닌 벌금(형사처벌)이라 가볍게 넘길 일이 아니며, **아르바이트나 단 하루 일하는 직원도 예외가 없어** **근무 시작 전에 반드시 작성해야 합니다**. 인터넷에서 받은 일반 표준근로계약서는 기본 항목만 있어 수습기간, 휴게시간, 수당 계산 방식처럼 사업장 사정에 맞춰 넣어야 할 내용이 빠지기 쉽고, **분쟁이 생기면 이 빈 부분이 사업주에게 불리하게 작용합니다**.',
     act:'노무사가 현행법에 맞춰 만든 근로계약서를 제공해 드리겠습니다.'},
-  {id:'payCalc',k:'급여계산기',t:'급여계산기 제공',prep:'직원별 근무 시간표(출퇴근·휴게시간)',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
+  {id:'payCalc',k:'급여계산기',t:'급여계산기 제공',prep:'직원별 근무 시간표(출퇴근·휴게시간)',now:h=>h.staffNow,
     body:'시급제·단시간 직원이 있는 사업장은 실제 근로시간과 휴게시간, 주휴수당 발생 여부에 따라 **지급해야 할 급여가 매달 달라집니다**. **주 15시간 이상 일하는 직원에게는 주휴수당이 생기고**, 5인 이상 사업장은 연장·야간 근로에 가산수당도 붙습니다. 계산이 조금만 어긋나도 **최저임금 미달이나 수당 미지급 문제**로 이어질 수 있고, 반대로 **필요 이상으로 지급하고 계신 경우도 적지 않습니다**.',
     act:'저희와 함께하시면 저희가 직접 개발해 쓰고 있는 급여계산기를 드립니다. 직원별 출퇴근·휴게시간만 넣으면 주휴수당까지 반영된 정확한 급여를 바로 확인하실 수 있어, 매달 급여 계산에 드는 시간과 실수를 함께 줄여 드리겠습니다.'},
-  {id:'durunuri',k:'두루누리',t:'두루누리 사회보험료 지원',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
+  {id:'durunuri',k:'두루누리',t:'두루누리 사회보험료 지원',now:h=>h.staffNow,
     body:'**근로자 10명 미만 사업장**이 **월평균보수 270만 원 미만**인 근로자를 새로 4대보험에 가입시키면, **고용보험과 국민연금 보험료의 80%를 최대 36개월까지** 사업주와 근로자 모두 지원받을 수 있습니다. 건강보험과 산재보험은 지원 대상이 아닙니다.',
     act:'직원별로 지원 대상인지 확인하고 신청을 챙겨 드리겠습니다.'},
-  {id:'taxHire',k:'통합고용세액공제',t:'통합고용세액공제',now:h=>h.ins4?`4대보험에 가입한 직원이 ${h.ins4}명 있습니다.`:h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
-    body:'직전 연도보다 상시근로자 수가 늘어나면 **늘어난 인원에 대해 3년에 걸쳐 소득세를 공제받을 수 있고**, 늘어난 인원을 유지할수록 2·3년차 공제 금액이 더 커집니다. **청년·장애인·60세 이상 직원이나 수도권 밖 사업장은 공제 금액이 더 큽니다**. 다만 **창업중소기업 세액감면을 받는 해에는 함께 받을 수 없어** 어느 쪽이 유리한지 따져 봐야 합니다.',
+  {id:'taxHire',k:'통합고용세액공제',t:'통합고용세액공제',now:h=>h.ins4?`4대보험에 가입한 직원이 ${h.ins4}명 있습니다.`:h.staffNow,
+    body:h=>'직전 연도보다 상시근로자 수가 늘어나면 **늘어난 인원에 대해 3년에 걸쳐 소득세를 공제받을 수 있고**, 늘어난 인원을 유지할수록 2·3년차 공제 금액이 더 커집니다. **청년·장애인·60세 이상 직원이나 수도권 밖 사업장은 공제 금액이 더 큽니다**. 다만 **창업중소기업 세액감면을 받는 해에는 함께 받을 수 없어** 어느 쪽이 유리한지 따져 봐야 합니다.'
+      +(h.stFin?` 대표님은 창업감면이 ${h.stFin}년까지라, **감면이 끝나는 ${h.stFin+1}년부터는 늘어난 직원만큼 통합고용세액공제를** 받을 수 있어 두 제도를 이어서 활용하시면 됩니다.`:''),
     act:'매년 상시근로자 수를 계산해 공제를 빠짐없이 적용하겠습니다.'},
-  {id:'youthJob',k:'청년일자리도약장려금',t:'청년일자리도약장려금',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
-    body:h=>'5인 이상 중소기업이 만 15~34세 청년을 정규직으로 채용해 6개월 이상 고용하면 **청년 1명당 1년간 최대 720만 원**을 지원받을 수 있습니다. 군 복무를 마친 청년은 복무 기간만큼 나이 기준이 늘어나 **최대 만 39세까지 인정됩니다**. 올해는 수도권 밖 사업장은 청년 채용 전반을, 수도권 사업장은 취업이 어려운 청년을 채용한 경우를 지원하므로 사업장 소재지와 청년의 요건을 **채용 전에 확인하는 것이 좋습니다**.'
-      +(h.y39&&!(h.openY&&new Date().getFullYear()-h.openY>=7)?' 대표님은 창업 당시 만 39세 이하셔서, 참여 신청 때에도 만 39세 이하이고 개업 후 7년이 지나지 않았다면 청년 창업기업으로 보아 **직원이 5명 미만(1명 이상)이어도 참여할 수 있습니다**.':''),
+  {id:'youthJob',k:'청년일자리도약장려금',t:'청년일자리도약장려금',now:h=>h.staffNow,
+    body:h=>'5인 이상 중소기업이 만 15~34세 청년을 정규직으로 채용해 6개월 이상 고용하면 **청년 1명당 1년간 최대 720만 원**을 지원받을 수 있습니다. 군 복무를 마친 청년은 복무 기간만큼 나이 기준이 늘어나 **최대 만 39세까지 인정됩니다**. '+(h.cap==='수도권'?'대표님 사업장은 수도권이라 **취업이 어려운 청년(일정 기간 이상 구직 중인 청년 등)을 채용한 경우**에 지원되므로, 청년의 요건을 **채용 전에 확인하는 것이 좋습니다**.'
+        :h.cap==='밖'?'대표님 사업장은 수도권 밖이라 **청년 채용 전반이 지원 대상**이어서, 채용 전에 신청 요건만 확인하시면 됩니다.'
+        :'올해는 수도권 밖 사업장은 청년 채용 전반을, 수도권 사업장은 취업이 어려운 청년을 채용한 경우를 지원하므로 사업장 소재지와 청년의 요건을 **채용 전에 확인하는 것이 좋습니다**.')
+      +(h.y39&&h.ins4<5&&!(h.openY&&new Date().getFullYear()-h.openY>=7)?' 대표님은 창업 당시 만 39세 이하셔서, 참여 신청 때에도 만 39세 이하이고 개업 후 7년이 지나지 않았다면 청년 창업기업으로 보아 **직원이 5명 미만(1명 이상)이어도 참여할 수 있습니다**.':''),
     act:'채용 계획이 있으시면 요건을 미리 확인해 신청을 도와드리겠습니다.'},
-  {id:'pension',k:'퇴직연금·푸른씨앗',t:'퇴직연금·푸른씨앗',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
+  {id:'pension',k:'퇴직연금·푸른씨앗',t:'퇴직연금·푸른씨앗',now:h=>h.staffNow,
     body:'**1년 이상, 주 15시간 이상 일한 직원에게는 퇴직금을 줘야 합니다**. 퇴직연금으로 매년 나눠 적립하면 퇴직 때 한꺼번에 큰돈이 나가는 부담을 줄일 수 있고, **확정기여형으로 낸 부담금은 그해 경비로 처리됩니다**. 30명 이하 사업장은 중소기업퇴직연금기금(푸른씨앗)에 가입하면 저임금 근로자에 대한 **사업주 부담금 일부를 지원받을 수 있습니다**.',
     act:'사업장에 맞는 퇴직연금 방식을 비교해 안내해 드리겠습니다.'},
   {id:'preSettle',k:'가결산',t:h=>h.corp?'결산 전 가결산':'종합소득세 가결산',prep:'올해 매출·비용 자료(카드·통장 내역)',now:()=>'',
@@ -2193,21 +2201,22 @@ const RP_TIPS=[
   {id:'yellow',k:'노란우산공제',t:'노란우산공제 소득공제',now:()=>'',
     body:'노란우산공제에 납부한 금액은 사업소득 규모에 따라 정해진 한도까지 **종합소득세에서 소득공제를 받을 수 있습니다**. 폐업이나 노령 등의 사유가 생기면 공제금을 받을 수 있고, **공제금은 압류가 금지되어** 사업이 어려울 때 생활 안정 자금이 됩니다.',
     act:'소득에 맞는 납부 금액을 정해 절세 효과를 계산해 드리겠습니다.'},
-  {id:'meal',k:'급여 비과세',t:'급여 비과세',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
+  {id:'meal',k:'급여 비과세',t:'급여 비과세',now:h=>h.staffNow,
     body:'직원에게 식사를 따로 제공하지 않고 식대를 급여에 포함해 주는 경우 **식대는 월 20만 원까지 비과세됩니다**. 직원이 **본인 차량을 직접 운전해 업무에 쓰고** 출장 여비를 따로 받지 않는다면, 회사 규정에 따라 주는 **자가운전보조금도 월 20만 원까지 비과세됩니다**. 급여를 정할 때 이런 항목을 나눠 두면 같은 인건비로 **직원의 세금과 4대보험 부담을 줄일 수 있습니다**.',
     act:'급여 명세를 비과세 항목에 맞게 짜 드리겠습니다.'},
-  {id:'corp',k:'법인 검토',t:h=>h.corp?'법인 운영 점검':'법인 전환 검토',prep:'최근 2~3년 손익 자료',now:h=>h.corp?'법인으로 운영하고 계십니다.':'',
+  {id:'corp',k:'법인 검토',t:h=>h.corp?'법인 운영 점검':h.planAdd?'개인사업 법인 전환과 비교':'법인 전환 검토',prep:'최근 2~3년 손익 자료',now:h=>h.corp?'법인으로 운영하고 계십니다.':h.planAdd?'법인을 새로 세우는 방법 외에, 지금 개인사업을 법인으로 전환하는 방법도 함께 비교해 볼 수 있습니다.':'',
     body:h=>h.corp?'법인은 대표님 급여, 배당, 퇴직금을 어떻게 짜느냐에 따라 법인과 대표님 개인이 내는 **전체 세금이 크게 달라집니다**. 법인 자금을 정해진 절차 없이 가져가면 **가지급금으로 남아 인정이자와 추가 세금 부담이 생기므로**, 자금 흐름을 처음부터 관리하는 것이 중요합니다.'
       :'매출과 이익이 커지면 **최고 45%까지 올라가는 종합소득세율보다 낮은 법인세율** 구간을 적용받아 법인 전환이 유리해질 수 있습니다. 다만 법인 자금은 급여나 배당으로만 가져갈 수 있고 회계·4대보험 관리 부담도 늘어나므로, **이익 규모와 자금 사용 계획을 함께 따져 봐야 합니다**. 현물출자나 사업양수도 방식으로 전환하면 요건에 따라 **양도소득세 이월과세, 남은 감면 기간 승계** 같은 혜택도 검토할 수 있습니다.',
-    act:h=>h.corp?'대표님 급여·배당·퇴직금 구조와 자금 관리 방법을 함께 설계해 드리겠습니다.':'예상 이익으로 개인과 법인의 세금을 비교해 전환 시기와 방법을 제안해 드리겠습니다.'},
-  {id:'articles',dup:['articlesA'],k:'정관 검토',t:'정관 검토',prep:'법인 정관과 주주명부',now:()=>'',
-    body:'법인은 정관에 따라 임원 보수와 퇴직금, 배당 방법이 정해지며, 정관이나 주주총회 결의에 근거가 없으면 **임원 퇴직금 등이 경비로 인정되지 않을 수 있습니다**. 설립 때 받은 표준 정관을 그대로 쓰는 경우가 많아 **실제 운영에 맞게 손볼 필요가 있고**, **중간배당이나 임원 퇴직금 규정을 미리 넣어 두면** 절세와 자금 활용의 폭이 넓어집니다.',
-    act:'정관을 검토해 임원 보수·퇴직금·배당 규정을 운영에 맞게 정비해 드리겠습니다.'},
+    act:h=>h.corp?'대표님 급여·배당·퇴직금 구조와 자금 관리 방법을 함께 설계해 드리겠습니다.':h.planAdd?'법인 추가 설립과 개인사업 법인 전환을 세금으로 비교해 유리한 방법을 제안해 드리겠습니다.':'예상 이익으로 개인과 법인의 세금을 비교해 전환 시기와 방법을 제안해 드리겠습니다.'},
+  {id:'articles',dup:['articlesA'],k:'정관 검토',t:h=>h.newCorp?'설립 정관 설계':'정관 검토',prep:'법인 정관과 주주명부',now:h=>h.newCorp?'설립 전이라 정관을 처음부터 운영에 맞게 정할 수 있습니다.':'',
+    body:h=>h.newCorp?'법인은 정관에 따라 임원 보수와 퇴직금, 배당 방법이 정해지며, 정관이나 주주총회 결의에 근거가 없으면 **임원 퇴직금 등이 경비로 인정되지 않을 수 있습니다**. 설립 때 쓰는 표준 정관에는 이런 규정이 빠져 있는 경우가 많아, **설립할 때부터 중간배당이나 임원 퇴직금 규정을 넣어 두면** 나중에 정관을 바꾸는 번거로움 없이 절세와 자금 활용의 폭이 넓어집니다.'
+      :'법인은 정관에 따라 임원 보수와 퇴직금, 배당 방법이 정해지며, 정관이나 주주총회 결의에 근거가 없으면 **임원 퇴직금 등이 경비로 인정되지 않을 수 있습니다**. 설립 때 받은 표준 정관을 그대로 쓰는 경우가 많아 **실제 운영에 맞게 손볼 필요가 있고**, **중간배당이나 임원 퇴직금 규정을 미리 넣어 두면** 절세와 자금 활용의 폭이 넓어집니다.',
+    act:h=>h.newCorp?'설립 정관에 넣을 임원 보수·퇴직금·배당 규정을 미리 정리해 드리겠습니다.':'정관을 검토해 임원 보수·퇴직금·배당 규정을 운영에 맞게 정비해 드리겠습니다.'},
   {id:'policyFund',dup:['fundA','loanPolicy'],k:'정책자금',t:'정책자금 활용',now:()=>'',
     body:'중소벤처기업진흥공단, 소상공인시장진흥공단, 지역 신용보증재단 등에서 **시중보다 낮은 금리로 운전자금과 시설자금을 지원합니다**. 심사 때 매출, 신고 소득, 부채비율 같은 재무 자료를 보기 때문에 **장부와 신고가 정리되어 있을수록 유리하고**, 여성기업이나 청년 창업, 고용을 늘린 기업은 우대받기도 합니다.',
     act:'사업장에 맞는 정책자금을 찾아보고 신청에 필요한 재무 자료를 준비해 드리겠습니다.'},
-  {id:'womenBiz',k:'여성기업확인서',t:'여성기업 확인서',now:()=>'',
-    body:'여성이 소유하고 경영하는 기업은 여성기업 확인서를 받으면 **공공기관 구매 우대**와 **정부 지원사업·정책자금 심사 가점**을 받을 수 있고, 특히 **정책자금 대출은 이자 우대**를 받아 이자 부담을 줄일 수 있습니다. 대표자 요건과 경영 실태 확인을 거쳐 발급되며, 유효기간이 있어 **기간에 맞춰 갱신해야 합니다**.',
+  {id:'womenBiz',k:'여성기업확인서',t:'여성기업 확인서',now:h=>h.wbSpouse?(h.wbTop?'배우자분 명의로 설립하실 법인은 배우자분이 대표이자 최대주주라 여성기업 확인 대상이 될 수 있습니다.':'배우자분 명의로 설립하실 법인은 배우자분이 대표이자 최대주주가 되면 여성기업 확인 대상이 될 수 있습니다.'):'',
+    body:h=>'여성이 소유하고 경영하는 기업은 여성기업 확인서를 받으면 **공공기관 구매 우대**와 **정부 지원사업·정책자금 심사 가점**을 받을 수 있고, 특히 **정책자금 대출은 이자 우대**를 받아 이자 부담을 줄일 수 있습니다. 대표자 요건과 경영 실태 확인을 거쳐 발급되며, 유효기간이 있어 **기간에 맞춰 갱신해야 합니다**.'+(h.wbSpouse?' 법인은 **여성이 대표로 등기되고 최대출자자여야** 하고 실제로 경영하는지도 확인하므로, 배우자분이 **실제 경영에 참여하는 구조**를 함께 갖춰야 합니다.':''),
     act:'신청하는 방법을 안내드립니다.'},
   {id:'certs',dup:['certA'],k:'벤처·이노비즈·메인비즈',t:'기업 인증 취득(벤처·이노비즈·메인비즈)',now:()=>'',
     body:'벤처기업 확인을 받으면 정책자금·보증 우대를 받고, 창업 후 3년 이내에 확인받은 경우 **창업벤처중소기업 세액감면 대상이 될 수 있습니다**. 업력 3년 이상 기업은 기술혁신형 이노비즈나 경영혁신형 메인비즈 인증으로 **금융·공공조달 우대와 각종 지원사업 가점**을 받을 수 있습니다. 인증마다 평가 요건이 있어 **미리 준비할수록 유리합니다**.',
@@ -2253,10 +2262,10 @@ function rpData(l){
   /* 사업 현황 */
   const facts=[],F=(a,b)=>{b=String(b||'').trim();if(b)facts.push([a,b]);};
   F('사업자 구분',(corp?'법인사업자':(one('entity',0)||''))+(stg.st&&stg.st!=='운영 중'?` (${stg.st})`:''));
-  F('업종·과세유형',[G('bizType',1).join(', '),one('bizType',0),T('bizType')].filter(Boolean).join(' / '));
+  F('업종·과세유형',[G('bizType',1).map(bizUp).join(', '),one('bizType',0),T('bizType')].filter(Boolean).join(' / '));
   F(pre&&corp?'설립':'개업',op.Y&&pre?`${op.Y}년${op.M?' '+op.M+'월':''} ${corp?'설립':'개업'} 예정`:op.txt);
   if(stg.plan){const ow=planOwner(S('convPlan'),stg.plan),nm=stg.plan==='add'?one('convPlan',3):'',st=shareTxt(S('convPlan'),ow||'대표'),sh=one('convPlan',1),
-      UP={'건설':'건설업','제조':'제조업','서비스':'서비스업','소매':'소매업','도소매':'도소매업','임대·렌탈':'임대·렌탈업'},bz=G('convPlan',0).map(v=>UP[v]||v);
+      bz=G('convPlan',0).map(bizUp);
     F(planName(stg.plan),[nm?'법인 명의 : '+nm:'',bz.length?'업종 : '+bz.join(', '):'',sh||st?'주주구성 : '+sh+(st?(sh?'(':'')+st+(sh?')':''):''):'',one('convPlan',2)?'자본금 : '+one('convPlan',2):''].filter(Boolean).join('\n'));}
   F('사업장 소재지',d.address);
   const ae=ageEval(S('ceoAge'));
@@ -2285,7 +2294,7 @@ function rpData(l){
 
   /* 검토 의견 */
   const I=[],add=(id,lv,t,now,body,act)=>I.push({id,lv,t,now:rpEmStrip(now),body,act:rpEmStrip(act)}); // ** 강조는 본문에만
-  const rate=one('relief',0),sy=one('relief',2),rst=one('relief',3); // rst: 적용 현황(미적용·대표 모름·적용 중·기간 정정 안내)
+  const rate=one('relief',0),sy=one('relief',2),rst=one('relief',3),txSt=tx&&tx.stR&&tx.stFin&&tx.items.some(i=>i[0]==='창업중소기업 세액감면')?{p:Math.round(tx.stR*100),e:tx.stFin}:null; // rst: 적용 현황(미적용·대표 모름·적용 중·기간 정정 안내)
   const tx0=corp?'법인세':'소득세',yr0=corp?'사업연도':'과세연도';
   if(/^\d+%$/.test(rate)&&rst==='적용 중'){const SY=sy?2000+parseInt(sy,10):0; // 잘 받고 계시면 '챙기셔야 한다'는 말 없이 현황만
     add('relief','info','창업중소기업 세액감면 적용 현황',`${tx0} ${rate} 감면을 현재 잘 적용받고 계십니다.`+(SY?` 감면 기간은 ${SY}년부터 ${SY+4}년까지입니다.`:''),
@@ -2300,7 +2309,7 @@ function rpData(l){
       `창업중소기업 세액감면은 최초로 소득이 발생한 ${yr0}부터 **5년간 ${tx0}를 줄여 주는 제도**로, **감면 기간이 끝날 때까지 같은 감면율이 이어집니다**.`,
       '남은 감면 기간 동안 지금처럼 신고에 그대로 반영하겠습니다.');
   else if(!rate&&!pre&&op.Y&&!op.fut&&op.Y>=cy-4)
-    add('reliefChk',rst==='미적용'?'high':'mid','창업감면 대상 여부 확인',`${op.Y}년에 개업하셔서 창업 후 5년이 지나지 않았습니다.`+(rst==='미적용'?' 지금까지 창업감면은 적용받지 못하고 계셨습니다.':rst==='대표 모름'?' 그동안 창업감면을 적용받으셨는지는 확인이 필요합니다.':''),
+    add('reliefChk',rst==='미적용'?'high':'mid',txSt?'창업중소기업 세액감면 적용':'창업감면 대상 여부 확인',`${op.Y}년에 개업하셔서 창업 후 5년이 지나지 않았습니다.`+(txSt?` 위 절세 효과에는 ${txSt.p}% 감면을 ${txSt.e}년까지 반영했습니다.`:'')+(rst==='미적용'?' 지금까지 창업감면은 적용받지 못하고 계셨습니다.':rst==='대표 모름'?' 그동안 창업감면을 적용받으셨는지는 확인이 필요합니다.':''),
       '**창업 후 5년 이내 사업자는** 업종, 창업 당시 나이, 사업장 소재지 요건에 따라 **창업중소기업 세액감면을 받을 수 있습니다**. 다만 **기존 사업을 인수하거나 업종만 바꾼 경우는 창업으로 보지 않습니다**.',
       '요건을 확인해 해당되면 감면을 적용하고, 지난 신고에서 빠졌다면 경정청구로 돌려받을 수 있는지 검토하겠습니다.');
   { const st=ae.st,b=ae.bandTxt,mt=ae.mTxt; // 병역 기간을 빼면 청년이 되는 경우(시행령 §5①1 단서)
@@ -2342,7 +2351,7 @@ function rpData(l){
   if(stg.add)
     add('addBiz','mid',stg.add==='indiv'?'개인사업자 추가와 세금':'법인 추가 설립과 세금',stg.add==='indiv'?'개인사업자를 하나 더 낼 계획이십니다.':(()=>{const pn=(S('convPlan').n||{}).pct,cap=one('convPlan',2),sh=one('convPlan',1),bz=G('convPlan',0); // 법인 추가 설립 계획 칸
         const ow=planOwner(S('convPlan'),stg.plan),owN=ow?ow+'분':'';
-        return (ow?`${owN} 명의로 `:'')+'법인을 추가로 설립할 계획이십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.join('·'))} 생각하고 계십니다.`:'')+((st=>sh||st?` ${[sh?`주주는 ${roJ(sh)}`:'',st?`지분은 ${roJ(st)}`:''].filter(Boolean).join(', ')} 계획하고 계십니다.`:'')(shareTxt(S('convPlan'),owN||'대표님')))+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
+        return (ow?`${owN} 명의로 `:'')+'법인을 추가로 설립할 계획이십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.map(bizUp).join('·'))} 생각하고 계십니다.`:'')+((st=>sh||st?` ${[sh?`주주는 ${roJ(sh)}`:'',st?`지분은 ${roJ(st)}`:''].filter(Boolean).join(', ')} 계획하고 계십니다.`:'')(shareTxt(S('convPlan'),owN||'대표님')))+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
       '새 사업자가 기존 사업을 넓히거나 업종만 더한 경우, 또는 기존 사업의 자산을 넘겨받아 같은 종류의 사업을 하는 경우는 **세법상 창업으로 보지 않아 창업중소기업 세액감면을 받을 수 없습니다**.'
         +(stg.add==='indiv'?' 또 개인사업 소득은 대표님의 다른 소득과 합쳐 종합소득세를 계산하므로 **세율이 올라갈 수 있고**, 복식부기·성실신고 같은 장부 의무도 **사업장 매출을 합쳐 판단합니다**.'
           :planOwner(S('convPlan'),stg.plan)?' 가족 명의 법인은 대표님과 따로 세금을 내므로 **소득이 나뉘는 효과**가 있지만, **세법상 대표님과 특수관계에 해당합니다**. 두 사업 사이의 거래와 비용 분담은 **시가 기준으로 처리해야 하고**, 실제 운영을 대표님이 하시면 **명의자와 실제 사업자가 다른 문제**가 생길 수 있어 역할과 거래 구조를 **처음부터 나눠 정해 두어야 합니다**.'
@@ -2350,7 +2359,7 @@ function rpData(l){
       '새 사업이 창업으로 인정되는지와 세금 부담을 미리 따져 사업자 형태와 시점을 정해 드리겠습니다.');
   if(stg.conv) // 조특법 §6⑩2 · §32①②④ → §31④
     add('conv','mid','법인전환 방식과 감면 승계',(()=>{const pn=(S('convPlan').n||{}).pct,cap=one('convPlan',2),sh=one('convPlan',1),bz=G('convPlan',0);
-      return '법인전환을 계획하고 계십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.join('·'))} 생각하고 계십니다.`:'')+((st=>sh||st?` ${[sh?`주주는 ${roJ(sh)}`:'',st?`지분은 ${roJ(st)}`:''].filter(Boolean).join(', ')} 계획하고 계십니다.`:'')(shareTxt(S('convPlan'),'대표님')))+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
+      return '법인전환을 계획하고 계십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.map(bizUp).join('·'))} 생각하고 계십니다.`:'')+((st=>sh||st?` ${[sh?`주주는 ${roJ(sh)}`:'',st?`지분은 ${roJ(st)}`:''].filter(Boolean).join(', ')} 계획하고 계십니다.`:'')(shareTxt(S('convPlan'),'대표님')))+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
       '개인사업을 법인으로 바꾸는 것은 세법상 **새로 창업한 것으로 보지 않아**, 법인이 창업중소기업 세액감면을 처음부터 다시 받을 수는 없습니다. 다만 사업용 자산을 현물출자하거나 요건을 갖춘 사업 양도·양수로 전환하면 개인 때 받던 창업감면의 **남은 기간을 법인이 이어받을 수 있고**, 사업용 부동산의 **양도소득세도 나중으로 미룰 수 있습니다**. 이때 새 법인의 자본금이 개인사업의 순자산 이상이어야 하는 등 요건이 있고, **전환 시점과 방식에 따라 세금이 크게 달라지므로** 미리 계산해 보는 것이 좋습니다.',
       '전환 방식별 세금과 감면 승계 여부를 계산해 유리한 시점과 방법을 안내해 드리겠습니다.');
   const bk=bk0,s0=salesTxt(S('sales')),sAmt=salesAmt(S('sales'));
@@ -2510,7 +2519,13 @@ function rpData(l){
         '전환 당시 적용받은 혜택과 사후관리 요건을 확인해 드리겠습니다.');
   }
   I.sort((a,b)=>RP_ORDER[a.lv]-RP_ORDER[b.lv]);
-  const hh={corp,y39:ae.y39,openY:op.fut?0:op.Y,staff:['ins4','biz33','daily','unreg','foreign','family'].reduce((a,k)=>a+N(k),0),ins4:N('ins4')};
+  const SK=[['ins4','4대보험'],['biz33','3.3%'],['daily','일용직'],['unreg','미신고'],['foreign','외국인'],['family','가족']].filter(([k])=>N(k)>0),stf=SK.reduce((a,[k])=>a+N(k),0);
+  const pOw=stg.plan==='add'?planOwner(S('convPlan'),'add'):'',pS=S('convPlan'),pRp=+((pS.n||{}).pct)||0,adr=String(d.address||''),stFin=tx&&tx.items.some(i=>i[0]==='창업중소기업 세액감면')?tx.stFin:0;
+  const hh={corp,y39:ae.y39,openY:op.fut?0:op.Y,staff:stf,ins4:N('ins4'),
+    staffNow:stf?`직원 ${stf}명${SK.length>1?`(${SK.map(([k,lb])=>lb+' '+N(k)+'명').join(', ')})`:''}을 고용하고 계십니다.`:'',
+    planAdd:stg.plan==='add',newCorp:!!stg.plan||(corp&&pre),stFin:stFin&&stFin>=cy?stFin:0,
+    cap:!adr.trim()||/강화|옹진|가평|연천/.test(adr)?'':/서울|경기|인천/.test(adr)?'수도권':'밖',
+    wbSpouse:pOw==='배우자'&&ae.sex!=='여',wbTop:shList(pS).every(x=>(+x.pct||0)<=pRp)};
   const rpImp=((l.fields.rp||{}).imp)||{};
   const tipsAll=RP_TIPS.filter(x=>!(x.dup||[]).some(d=>I.some(y=>y.id===d))).map(x=>{const f=v=>typeof v==='function'?v(hh):v;const id='tip_'+x.id;return{id,key:x.id,k:x.k,on:tipOn(x.id),lv:rpImp[id]?'tipHi':'tip',t:f(x.t),now:rpEmStrip(f(x.now)),body:f(x.body),act:rpEmStrip(f(x.act)),prep:x.prep};}); // 검토 의견 목록에 모두 깔고 넣음/뺌
   const tips=tipsAll.filter(x=>x.on).sort((a,b)=>(b.lv==='tipHi')-(a.lv==='tipHi'));
@@ -2535,7 +2550,8 @@ function rpData(l){
   const hasStaff=['ins4','biz33','daily','unreg','foreign','family'].some(k=>N(k));
   const svc=[...(pre?[corp?'법인 설립 후 사업자등록과 초기 세무 세팅':'사업자등록과 개업 초기 세무 세팅']:[]),'장부 작성과 증빙 정리',corp?'부가가치세·법인세 절세, 가결산으로 법인세를 미리 계산하고 보완':'부가가치세·종합소득세 절세, 가결산으로 종합소득세를 미리 계산하고 보완',...(corp?['대표님 급여·배당·퇴직금 설계와 가지급금 관리']:[]),...(hasStaff?['직원 급여 신고(원천세·4대보험)와 고용 지원금·세액공제 점검']:[]),'신고 일정 미리 안내와 수시 세무 상담','간단한 노무 상담, 급여계산기·근로계약서 등 제공',corp?'비용 처리 등 운영 상담, 법인 설립 상담':stg.conv?'법인전환 시점·방식 설계와 비용 처리, 법인 설립 상담':'법인전환 상담과 비용 처리, 법인 설립 상담','그 외 사업 전반에 필요한 부분 상담'];
   const wb=G('guided',0).includes('여성기업확인서')?wbCalc({}) /* 예시 고정값: 3,000만원·3.5%·우대 1%p */:null;
-  return{d,facts,issues:I,tips,tipsAll,guided,prep:[...prep],svc,tx,wb};
+  const guidedK=[...G('guided',0).filter(v=>!(wbHide&&v==='여성기업확인서')),...lines(T('guided')).map(()=>'')];
+  return{d,facts,issues:I,tips,tipsAll,guided,guidedK,prep:[...prep],svc,tx,wb};
 }
 
 /* ----- A4 캔버스 그리기 (150dpi) ----- */
@@ -2590,6 +2606,7 @@ function rpWrapEm(c,text,maxW,fs){ // 굵은 글자 폭까지 재서 줄바꿈 �
 function rpTextEm(c,L,x,y,lh,fs,col,colB){L.forEach((rs,i)=>{let xx=x;rs.forEach(r=>{c.font=rpF(r.b?700:400,fs);c.fillStyle=r.b?colB:col;c.fillText(r.t,xx,y+i*lh);xx+=c.measureText(r.t).width;});});}
 function rpBlocks(l){
   const st=rpState(l),R=rpData(l),auto=R.issues.filter(x=>!st.ex[x.id]),iss=[...auto.filter(x=>x.lv==='high'),...R.tips.filter(x=>x.lv==='tipHi'),...auto.filter(x=>x.lv!=='high'),...R.tips.filter(x=>x.lv!=='tipHi')].map(x=>({...x,sec:rpIsSec(l,x.id)})),d=R.d,B=[],txSec=rpIsSec(l,'tx');
+  { const seen=new Set();iss.forEach(x=>{if(!x.now)return;if(seen.has(x.now))x.now='';else seen.add(x.now);}); } // '직원 N명…' 같은 첫 줄은 처음 한 번만
   const office=(settings.office||'').trim(),writer=(settings.writer||d.writer||'').trim(),tel=(settings.tel||'').trim();
   const gap=h=>B.push({gap:1,h:()=>h,draw(){}});
   /* 표지 머리 */
@@ -2613,7 +2630,7 @@ function rpBlocks(l){
     c.font=rpF(500,25);c.fillStyle='#163F35';rpText(c,this.L,RP_X+32,y+28+28,40);}});
   /* 한눈에 보는 절세 효과 (계산 근거·단가는 싣지 않음) */
   if(tx&&tx.tot>=1){const rows=tx.items,y1=tx.Y[0];
-    const foot='상담 때 말씀하신 '+(tx.th?'올해 예상 종합소득세 ':'작년 종합소득세 ')+txWon(tx.T0)+'을 기준으로 최저한세까지 반영해 추정한 금액입니다(국세 기준, 지방소득세 별도). 같은 소득이 이어지고 늘린 인원을 유지한다고 보았으며, 실제 종합소득세 신고 때는 장부와 공제 내역에 따라 금액에 오차가 있을 수 있습니다.'
+    const foot='상담 때 말씀하신 '+(tx.th?'올해 예상 종합소득세 ':'작년 종합소득세 ')+txWon(tx.T0)+'을 기준으로 최저한세까지 반영해 추정한 금액입니다(국세 기준, 지방소득세 별도). '+(tx.ny||tx.no?'같은 소득이 이어지고 늘린 인원을 유지한다고 보았으며':'같은 소득이 이어진다고 보았으며')+', 실제 종합소득세 신고 때는 장부와 공제 내역에 따라 금액에 오차가 있을 수 있습니다.'+(tx.stEnd?` 창업중소기업 세액감면은 감면 기간이 끝나는 ${tx.stEnd}년까지만 반영했습니다.`:'')
       +(tx.blkHire>=0.5?(txSec?' 최저한세 때문에 바로 받지 못하는 공제 일부는 다음 해로 넘겨 쓸 수 있습니다.':' 최저한세 때문에 바로 받지 못하는 통합고용세액공제는 다음 해로 넘겨 쓸 수 있습니다.'):'');
     B.push({h(c){c.font=rpF(400,19);this.F=rpWrap(c,foot,RP_CW-80);this.hh=520+52+rows.length*48+20+this.F.length*30+30;return this.hh+28;},draw(c,y){
       const h=this.hh,X=RP_X+40,W=RP_CW-80;c.fillStyle='#FFFFFF';c.strokeStyle=RP_ACC;c.lineWidth=3;rpRound(c,RP_X,y,RP_CW,h,16);c.fill();c.stroke();
@@ -2658,14 +2675,16 @@ function rpBlocks(l){
   /* 저희가 챙겨 드릴 일 → 맨 끝 '맡겨 주시면 체계적으로 관리해 드립니다'에 합침 */
   let actRows=[];
   { const txK=new Set(tx?tx.items.map(i=>TX_TIP[i[0]]).filter(Boolean).map(x=>'tip_'+x):[]);
-    const acts=[...(tx?tx.items.map(([k,a])=>({lv:'tip',lb:'절세',t:k+' 적용',r:'3년 약 '+txWon(a[0]+a[1]+a[2]),sec:txSec})):[]),...iss.filter(x=>!txK.has(x.id)).map(x=>({lv:x.lv,lb:RP_LV[x.lv][0],t:x.t,sec:x.sec}))];
+    const acts=[...(tx?tx.items.map(([k,a])=>({lv:'tip',lb:'절세',t:k+' 적용',r:'3년 약 '+txWon(a[0]+a[1]+a[2]),sec:txSec})):[]),...iss.filter(x=>!txK.has(x.id)&&['high','mid','tipHi'].includes(x.lv)).map(x=>({lv:x.lv,lb:RP_LV[x.lv][0],t:x.t,sec:x.sec}))];
+    const restN=iss.filter(x=>!txK.has(x.id)&&!['high','mid','tipHi'].includes(x.lv)).length;
     actRows=acts.map(a=>({h:()=>54,draw(c,y){const col=a.lb==='절세'?RP_ACC:RP_LV[a.lv][1];c.font=rpF(600,18);const bw=c.measureText(a.lb).width+24;
       c.fillStyle=col;rpRound(c,RP_X,y+10,bw,30,15);c.fill();c.fillStyle='#fff';c.fillText(a.lb,RP_X+12,y+31);
       if(a.sec){c.font=rpF(500,24);const tt=rpScr(a.t),tw=c.measureText(tt).width;rpBlur(c,RP_X+bw+16,y+8,tw,36,g=>{g.font=rpF(500,24);g.fillStyle=RP_TX;g.fillText(tt,0,26);});
         const lx=RP_X+bw+16+Math.max(tw,140)/2;rpLock(c,lx,y+26,1);}
       else{c.font=rpF(500,24);c.fillStyle=RP_TX;c.fillText(a.t,RP_X+bw+16,y+34);}
       if(a.r){c.font=rpF(700,23);c.fillStyle=RP_UP;c.fillText(a.r,RP_X+RP_CW-c.measureText(a.r).width,y+34);}
-      c.fillStyle='#E8EDF0';c.fillRect(RP_X,y+52,RP_CW,1);}}));}
+      c.fillStyle='#E8EDF0';c.fillRect(RP_X,y+52,RP_CW,1);}}));
+    if(restN&&actRows.length)actRows.push({h:()=>54,draw(c,y){c.font=rpF(500,23);c.fillStyle=RP_MU;c.fillText(`그 밖에 위에서 말씀드린 ${restN}가지도 함께 챙겨 드립니다.`,RP_X,y+34);}});}
   let no=0;
   const head=(t,keep)=>{const k=++no;B.push({head:1,keep,h:()=>90,draw(c,y){c.font=rpF(700,32);c.fillStyle=RP_ACC;c.fillText(k+'. '+t,RP_X,y+44);c.fillStyle=RP_ACC;c.fillRect(RP_X,y+60,56,4);}});};
   const bullets=a=>a.forEach(t=>B.push({h(c){c.font=rpF(400,24);this.L=rpWrap(c,t,RP_CW-40);return this.L.length*38+16;},draw(c,y){
@@ -2704,7 +2723,9 @@ function rpBlocks(l){
         c.font=rpF(600,23);c.fillStyle=RP_ACC;rpText(c,this.A,x0,yy+26,36);}});
       if(x.id==='tip_womenBiz')wbPush();});
     gap(12);}
-  if(R.guided.length){head('상담 중 안내드린 내용');bullets(R.guided);gap(R.wb&&!wbDone?24:40);}
+  { const GID={'여성기업확인서':['tip_womenBiz'],'근로계약서':['tip_contract'],'두루누리':['tip_durunuri'],'통합고용세액공제':['tip_taxHire'],'창업감면':['relief','reliefChk','preRelief','youth'],'사업용 카드 등록':['card']},shown=new Set(iss.map(x=>x.id));
+    const gl=R.guided.filter((g,i)=>!(GID[R.guidedK[i]]||[]).some(id=>shown.has(id))); // 위 카드로 이미 설명한 건 다시 안 적음
+    if(gl.length){head('상담 중 안내드린 내용');bullets(gl);gap(R.wb&&!wbDone?24:40);} }
   if(R.wb&&!wbDone){wbPush();gap(12);} // 여성기업 확인서 카드가 없으면 안내 내용 아래에
   head('맡겨 주시면 체계적으로 관리해 드립니다');
   if(actRows.length){const sub=t=>B.push({h:()=>58,draw(c,y){c.font=rpF(700,24);c.fillStyle=RP_MU;c.fillText(t,RP_X,y+34);}});
