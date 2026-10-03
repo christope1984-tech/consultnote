@@ -2249,13 +2249,15 @@ function rpData(l){
   const d=disp(l),op=rpOpenInfo(l),cy=new Date().getFullYear(),sn=S('staff').n||{},N=x=>+sn[x]||0;
   /* 장부 의무: 복식부기 의무는 직전 연도 매출로 정해지고 개업한 해는 간편장부 대상 */
   const bk0=corp?'':one('sales',2),sb=one('sales',1),openNow=!!op.Y&&!op.fut&&op.Y===cy;
-  const dblNow=bk0==='성실신고 대상자'||(bk0==='복식부기대상자'&&sb!=='올해'&&!openNow),dblNext=bk0==='복식부기대상자'&&!dblNow;
+  const dblNow=bk0==='성실신고 대상자'||bk0==='복식부기대상자',dblNext=false; // '복식부기대상자'는 지금 복식부기라서 고른 것(전환 예상으로 보지 않음)
   /* 사업 현황 */
   const facts=[],F=(a,b)=>{b=String(b||'').trim();if(b)facts.push([a,b]);};
   F('사업자 구분',(corp?'법인사업자':(one('entity',0)||''))+(stg.st&&stg.st!=='운영 중'?` (${stg.st})`:''));
   F('업종·과세유형',[G('bizType',1).join(', '),one('bizType',0),T('bizType')].filter(Boolean).join(' / '));
   F(pre&&corp?'설립':'개업',op.Y&&pre?`${op.Y}년${op.M?' '+op.M+'월':''} ${corp?'설립':'개업'} 예정`:op.txt);
-  if(stg.plan){const ow=planOwner(S('convPlan'),stg.plan),st=shareTxt(S('convPlan'),ow||'대표');F(planName(stg.plan),[ow?ow+' 명의':'',G('convPlan',0).join(', '),one('convPlan',1)+(st?` (${st})`:''),one('convPlan',2)?'자본금 '+one('convPlan',2):''].filter(x=>x&&x.trim()).join(' / '));}
+  if(stg.plan){const ow=planOwner(S('convPlan'),stg.plan),nm=stg.plan==='add'?one('convPlan',3):'',st=shareTxt(S('convPlan'),ow||'대표'),sh=one('convPlan',1),
+      UP={'건설':'건설업','제조':'제조업','서비스':'서비스업','소매':'소매업','도소매':'도소매업','임대·렌탈':'임대·렌탈업'},bz=G('convPlan',0).map(v=>UP[v]||v);
+    F(planName(stg.plan),[nm?'법인 명의 : '+nm:'',bz.length?'업종 : '+bz.join(', '):'',sh||st?'주주구성 : '+sh+(st?(sh?'(':'')+st+(sh?')':''):''):'',one('convPlan',2)?'자본금 : '+one('convPlan',2):''].filter(Boolean).join('\n'));}
   F('사업장 소재지',d.address);
   const ae=ageEval(S('ceoAge'));
   F('창업 당시 나이',ae.age?ae.bandTxt+(ae.m?` (병역 ${ae.mTxt})`:ae.mil==='병역 이행'?' (병역 이행)':''):'');
@@ -2267,7 +2269,7 @@ function rpData(l){
   F('차량',one('vehicle',0)==='차량 없음'?'없음':vehTxt(S('vehicle')));
   const rNo=one('rightsContract',0)==='권리금 없음';
   { const a=one('initCost',0),b=G('initCost',1).filter(v=>!rNo||v!=='권리금'),c=one('initCost',2);F('초기 투자',[a?won(a):'',b.join(', '),c?(/^증빙/.test(c)?c:'증빙 '+c):'',T('initCost')].filter(Boolean).join(' / ')); }
-  { const a=one('rightsContract',0),b=one('rightsContract',1),c=one('rightsContract',2),m=one('rightsContract',3);F('권리금',(rNo?[a,T('rightsContract')]:[a+(m?` (${m})`:''),b?'권리 '+b:'',c?'세금 처리: '+c:'',T('rightsContract')]).filter(Boolean).join(' / ')); }
+  { const a=one('rightsContract',0),b=one('rightsContract',1),c=one('rightsContract',2),m=one('rightsContract',3);if(!rNo)F('권리금',[a+(m?` (${m})`:''),b?'권리 '+b:'',c?'세금 처리: '+c:'',T('rightsContract')].filter(Boolean).join(' / ')); } // 권리금 없음이면 줄 자체를 안 보임
   if(corp){
     F('설립·자본금',[one('corpEst',0),one('corpEst',1)?'자본금 '+won(one('corpEst',1)):'',T('corpEst')].filter(Boolean).join(' / '));
     F('주주 구성',[one('shareholders',0),T('shareholders'),...G('shareholders',1)].filter(Boolean).join(' / '));
