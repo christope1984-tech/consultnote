@@ -2556,7 +2556,7 @@ function rpData(l){
     if(I.some(x=>x.id==='nominee'||x.id==='shares'))prep.add('주주명부와 주식 변동 내역');if(I.some(x=>x.id==='certA'||x.id==='rndA'))prep.add('최근 3년 재무제표와 연구 인력 현황');}
   const hasStaff=['ins4','biz33','daily','unreg','foreign','family'].some(k=>N(k));
   const svc=[...(pre?[corp?'법인 설립 후 사업자등록과 초기 세무 세팅':'사업자등록과 개업 초기 세무 세팅']:[]),'장부 작성과 증빙 정리',corp?'부가가치세·법인세 절세, 가결산으로 법인세를 미리 계산하고 보완':'부가가치세·종합소득세 절세, 가결산으로 종합소득세를 미리 계산하고 보완',...(corp?['대표님 급여·배당·퇴직금 설계와 가지급금 관리']:[]),...(hasStaff?['직원 급여 신고(원천세·4대보험)와 고용 지원금·세액공제 점검']:[]),'신고 일정 미리 안내와 수시 세무 상담','간단한 노무 상담, 급여계산기·근로계약서 등 제공',corp?'비용 처리 등 운영 상담, 법인 설립 상담':stg.conv?'법인전환 시점·방식 설계와 비용 처리, 법인 설립 상담':'법인전환 상담과 비용 처리, 법인 설립 상담','그 외 사업 전반에 필요한 부분 상담'];
-  const wb=G('guided',0).includes('여성기업확인서')?wbCalc({}) /* 예시 고정값: 3,000만원·3.5%·우대 1%p */:null;
+  const wb=G('guided',0).includes('여성기업확인서')||tips.some(x=>x.id==='tip_womenBiz')?wbCalc({}) /* 예시 고정값: 3,000만원·3.5%·우대 1%p */:null;
   const guidedK=[...G('guided',0).filter(v=>!(wbHide&&v==='여성기업확인서')),...lines(T('guided')).map(()=>'')];
   return{d,facts,issues:I,tips,tipsAll,guided,guidedK,prep:[...prep],svc,tx,wb};
 }
