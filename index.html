@@ -158,7 +158,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 .numin.wide{width:78px}
 .shBox{display:flex;flex-direction:column;gap:8px;min-width:0}.shList{display:flex;flex-direction:column;gap:8px}.shList:empty{display:none}
 .shRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.shWho{width:auto;min-width:118px;height:44px;padding:0 10px;font-size:15.5px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:inherit}
+.shWho{box-sizing:border-box;width:132px;flex:none;height:44px;padding:0 10px;font-size:15.5px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:inherit}
+.shLead{display:inline-flex;align-items:center;font-weight:600;cursor:default}
 .shDel{width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:22px;cursor:pointer}
 .shAdd{align-self:flex-start;margin-top:2px}
 .shSum{margin:2px 0 0;font-size:14px;color:var(--muted)}.shSum.ok{color:var(--accent)}.shSum.warn{color:var(--neg)}
@@ -725,7 +726,7 @@ const DEFAULT_WRITER='';
 /* 선택식 항목: groups[{t,o,m(여러 개)}], date(날짜칸 이름), memo(직접 입력칸 이름) */
 const PICK={
   convPlan:{groups:[{t:'법인 업종',m:1,o:['음식점','카페','소매','도소매','온라인 판매','건설','제조','서비스','임대·렌탈','기타']},{t:'주주 구성',o:['대표 1인','가족 공동','외부 주주 포함']},{t:'자본금',o:['1천만 이하','1천만~5천만','5천만~1억','1억 이상']}],
-    steps:[{n:'pct',t:'대표 지분',unit:'%',max:100,len:3,z:1}],share:1,memo:'메모',ph:'예: 개인사업 순자산 약 8천만, 배우자 30%',only:'indiv',conv:1},
+    steps:[{n:'pct',t:'대표 지분',unit:'%',max:100,len:3,z:1,lead:'대표'}],share:1,memo:'메모',ph:'예: 개인사업 순자산 약 8천만, 배우자 30%',only:'indiv',conv:1},
   entity:{groups:[{t:'구분',o:['개인사업자','법인사업자']},{t:'단계',s:'운영 중이면 비워 두기',o:['개업 예정','설립 예정','개인사업자 추가 예정','법인 추가 설립 예정','법인전환 예정'],oo:{'개업 예정':'indiv','설립 예정':'corp','법인전환 예정':'indiv'}}]},
   corpEst:{groups:[{t:'설립',o:['신설 법인','개인사업자에서 전환','기존 법인 인수']},{t:'자본금',o:['1천만 이하','1천만~5천만','5천만~1억','1억 이상']}],memo:'메모',only:'corp'},
   shareholders:{groups:[{t:'주주 구성',o:['대표 1인','가족 공동','외부 주주 포함']},{t:'확인',o:['차명주식 있음','지분 정리 필요'],m:1}],memo:'지분 메모',ph:'예: 대표 70%, 배우자 30%',only:'corp'},
@@ -1022,10 +1023,10 @@ function pickHTML(k){
       +`<div class="grp"><span></span><p class="numhint" id="nh_${k}" aria-live="polite"></p></div>`:'')
     +grpHTML(k,c,g=>!g.inline&&!g.after)
     +(c.date?`<div class="grp"><label class="gl" for="d_${k}">${c.date}</label><div><input class="fin date" type="date" id="d_${k}" data-k="${k}" data-role="d"></div></div>`:'')
-    +(c.steps||[]).reduce((h,sp)=>{const num=`<div class="num">`
+    +(c.steps||[]).reduce((h,sp)=>{const num=(sp.lead?`<div class="shRow"><span class="shWho shLead">${sp.lead}</span>`:'')+`<div class="num">`
       +`<button type="button" class="nb" data-k="${k}" data-n="${sp.n}" data-inc="-1" aria-label="${sp.t} 줄이기">−</button>`
       +`<input class="fin numin${sp.len>3?' wide':''}" data-k="${k}" data-role="n" data-n="${sp.n}" inputmode="numeric" pattern="[0-9]*" maxlength="${sp.len||3}" autocomplete="off" placeholder="${sp.base||'–'}" aria-label="${sp.t}">`
-      +`<button type="button" class="nb" data-k="${k}" data-n="${sp.n}" data-inc="1" aria-label="${sp.t} 늘리기">+</button><span class="unit">${sp.unit}</span></div>`;
+      +`<button type="button" class="nb" data-k="${k}" data-n="${sp.n}" data-inc="1" aria-label="${sp.t} 늘리기">+</button><span class="unit">${sp.unit}</span></div>`+(sp.lead?'</div>':'');
       if(sp.join&&h)return h.replace(/<\/div><\/div>$/,num+'</div></div>'); // 앞 칸과 같은 줄(예: 년 + 개월)
       return h+`<div class="grp"${sp.hide?` data-hk="${k}" data-hg="${sp.hide[0]}" data-hv="${esc(sp.hide[1])}"`:''}><span class="gl">${sp.t}${sp.sub?`<small>${sp.sub}</small>`:''}</span><div class="nums">${num}</div></div>`;},'')
     +grpHTML(k,c,g=>g.after&&!g.inline)
