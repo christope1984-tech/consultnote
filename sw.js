@@ -1,5 +1,5 @@
 /* 상담일지 서비스워커 — 코드를 고쳐 올릴 때마다 아래 버전 숫자만 올리면 됨 */
-const CACHE = 'sangdam-v23';
+const CACHE = 'sangdam-v24';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -17,9 +17,9 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // 앱 화면: 인터넷 되면 새 버전, 안 되면 저장된 버전
+  // 앱 화면: 인터넷 되면 새 버전(브라우저 캐시 건너뛰고 서버 확인), 안 되면 저장된 버전
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(res => {
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => {
       const copy = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); return res;
     }).catch(() => caches.match('./index.html')));
     return;
