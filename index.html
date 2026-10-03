@@ -140,6 +140,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .gl{padding-top:10px;font-size:13.5px;line-height:1.3;color:var(--muted)}
 .gl small{display:block;font-size:12px;opacity:.85}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
+.brk{flex-basis:100%;height:0;margin-top:-8px;padding:0;border:0} /* 줄 균형용 줄바꿈 */
 .chip{min-height:42px;padding:0 15px;border-radius:21px;border:1px solid var(--line);background:var(--card);font-size:14.5px;cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 .fin{width:100%;min-height:44px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-size:15px}
@@ -3178,6 +3179,21 @@ if('serviceWorker'in navigator&&location.protocol==='https:'){
     if(!$('#view-list').hidden||!$('#view-settings').hidden){reloaded=true;flush().finally(()=>location.reload());}
     else toast('새 버전을 받았어요. 목록으로 나갔다가 앱을 다시 열면 적용돼요.');});
 }
+
+/* ---------- 칩·칸 줄 균형: 3+1, 4+2처럼 짝 안 맞으면 2+2, 3+3처럼 고르게 ---------- */
+(()=>{const P=document.getElementById('panel');if(!P)return;let busy=false,t=0;
+ const rowsOf=ks=>{const r=[];let top=null;ks.forEach(k=>{const y=k.getBoundingClientRect().top;if(top===null||y>top+10){r.push(0);top=y}r[r.length-1]++});return r};
+ const ok=r=>r.length<2||Math.max(...r)-Math.min(...r)<=1;
+ function bal(c){c.querySelectorAll(':scope>.brk').forEach(b=>b.remove());if(!c.offsetParent||getComputedStyle(c).display!=='flex')return;
+  const ks=[...c.children].filter(k=>k.offsetParent&&k.getBoundingClientRect().width>0);if(ks.length<3)return;
+  const r0=rowsOf(ks);if(ok(r0))return;
+  for(let rr=r0.length;rr<=ks.length;rr++){const k=Math.ceil(ks.length/rr);
+   for(let i=k;i<ks.length;i+=k){const b=document.createElement('i');b.className='brk';ks[i-1].after(b)}
+   const r=rowsOf(ks);if(r.length===rr&&ok(r))return;c.querySelectorAll(':scope>.brk').forEach(b=>b.remove())}}
+ function all(){busy=true;P.querySelectorAll('.chips,.nums:not(.c2)').forEach(bal);mo.takeRecords();busy=false}
+ const go=()=>{clearTimeout(t);t=setTimeout(all,60)};
+ const mo=new MutationObserver(()=>{if(!busy)go()});mo.observe(P,{childList:true,subtree:true,attributes:true,attributeFilter:['class','hidden','style','aria-pressed','aria-expanded','open']});
+ new ResizeObserver(go).observe(P);go();})();
 </script>
 </body>
 </html>
