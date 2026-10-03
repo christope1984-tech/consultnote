@@ -2563,6 +2563,27 @@ function rpText(ctx,lines,x,y,lh){lines.forEach((t,i)=>ctx.fillText(t,x,y+i*lh))
 function rpRound(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function rpDate(s){const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||'');return m?`${+m[1]}년 ${+m[2]}월 ${+m[3]}일`:(s||'');}
 const RP_UP='#D32F2F',RP_DN='#1F5FBF',pnCol=v=>v<0?RP_DN:RP_UP; // 이득 빨강, 손해 파랑
+/* 검토 의견 본문 강조('자세히'): 숫자·기간·금액·비율과 놓치면 손해 보는 표현을 굵게 */
+const RP_EM=[/(?:만\s?)?\d+세(?:\s?(?:이하|이상|미만|초과))?/g,
+  /\d[\d,]*(?:\.\d+)?\s?억(?:\s?\d[\d,]*\s?만)?\s?원?|\d[\d,]*(?:\.\d+)?\s?(?:천만|만)\s?원|\d[\d,]{2,}\s?원/g,
+  /\d+(?:\.\d+)?(?:\s?[~∼]\s?\d+(?:\.\d+)?)?\s?%p?/g,
+  /\d+\s?(?:년간|개월|년|일|시간|명|회)(?:\s?(?:안에|이내|이하|이상|미만|초과|말까지|까지|이후|부터))?/g,
+  /(?:함께\s)?받을 수 없[가-힣]*|받지 못[가-힣]*|인정되지 않[가-힣]*|추징[가-힣]*|가산세|경정청구|형사처벌|반드시|내야 할 수 있[가-힣]*/g];
+function rpEmMark(t){const f=new Uint8Array(t.length);RP_EM.forEach(re=>{re.lastIndex=0;let m;while((m=re.exec(t))){if(!m[0])re.lastIndex++;else f.fill(1,m.index,m.index+m[0].length);}});return f;}
+function rpWrapEm(c,text,maxW,fs){ // 굵은 글자 폭까지 재서 줄바꿈 → 줄마다 [{t,b}] 묶음
+  const FN=rpF(400,fs),FB=rpF(700,fs),wOf=(t,b)=>{c.font=b?FB:FN;return c.measureText(t).width;},out=[];
+  for(const para of String(text??'').split('\n')){const f=rpEmMark(para),ch=[...para].map((x,i)=>({x,b:f[i]})),words=[];let cw=[];
+    ch.forEach(o=>{if(/\s/.test(o.x)){if(cw.length)words.push(cw);cw=[];words.push(null);}else cw.push(o);});if(cw.length)words.push(cw);
+    const runs=a=>{const r=[];a.forEach(o=>{const l=r[r.length-1];if(l&&l.b===o.b)l.t+=o.x;else r.push({t:o.x,b:o.b});});return r;};
+    const wid=a=>runs(a).reduce((s,r)=>s+wOf(r.t,r.b),0);let line=[];
+    words.forEach(w=>{if(!w){if(line.length)line.push({x:' ',b:0});return;}
+      if(wid([...line,...w])<=maxW){line.push(...w);return;}
+      while(line.length&&line[line.length-1].x===' ')line.pop();if(line.length)out.push(runs(line));line=[];
+      if(wid(w)<=maxW){line=[...w];return;}
+      w.forEach(o=>{if(line.length&&wid([...line,o])>maxW){out.push(runs(line));line=[];}line.push(o);});});
+    while(line.length&&line[line.length-1].x===' ')line.pop();out.push(runs(line));}
+  return out;}
+function rpTextEm(c,L,x,y,lh,fs,col,colB){L.forEach((rs,i)=>{let xx=x;rs.forEach(r=>{c.font=rpF(r.b?700:400,fs);c.fillStyle=r.b?colB:col;c.fillText(r.t,xx,y+i*lh);xx+=c.measureText(r.t).width;});});}
 function rpBlocks(l){
   const st=rpState(l),R=rpData(l),auto=R.issues.filter(x=>!st.ex[x.id]),iss=[...auto.filter(x=>x.lv==='high'),...R.tips.filter(x=>x.lv==='tipHi'),...auto.filter(x=>x.lv!=='high'),...R.tips.filter(x=>x.lv!=='tipHi')].map(x=>({...x,sec:rpIsSec(l,x.id)})),d=R.d,B=[],txSec=rpIsSec(l,'tx');
   const office=(settings.office||'').trim(),writer=(settings.writer||d.writer||'').trim(),tel=(settings.tel||'').trim();
@@ -2667,7 +2688,7 @@ function rpBlocks(l){
         rpBlur(c,x0,yy,w,this.hb,g=>{let gy=0;g.font=rpF(700,28);g.fillStyle=RP_TX;rpText(g,T,0,gy+28,42);gy+=T.length*42+10;
           if(Bd.length){g.font=rpF(400,23);g.fillStyle='#3C4852';rpText(g,Bd,0,gy+26,36);gy+=Bd.length*36+14;}g.font=rpF(600,23);g.fillStyle=RP_ACC;rpText(g,A,0,gy+26,36);});
         rpLock(c,x0+w/2,yy+this.hb/2);}});
-    iss.forEach((x,i)=>{B.push(x.sec?secCard(x):{h(c){const w=RP_CW-76;c.font=rpF(700,28);this.T=rpWrap(c,x.t,w-170);c.font=rpF(500,24);this.N=x.now?rpWrap(c,x.now,w):[];c.font=rpF(400,23);this.Bd=st.brief?[]:rpWrap(c,x.body,w);c.font=rpF(600,23);this.A=rpWrap(c,'→ '+x.act,w);
+    iss.forEach((x,i)=>{B.push(x.sec?secCard(x):{h(c){const w=RP_CW-76;c.font=rpF(700,28);this.T=rpWrap(c,x.t,w-170);c.font=rpF(500,24);this.N=x.now?rpWrap(c,x.now,w):[];this.Bd=st.brief?[]:rpWrapEm(c,x.body,w,23);c.font=rpF(600,23);this.A=rpWrap(c,'→ '+x.act,w);
         this.hh=36+this.T.length*42+12+(this.N.length?this.N.length*37+14:0)+(this.Bd.length?this.Bd.length*36+18:4)+this.A.length*36+30;return this.hh+34;},
       draw(c,y){const[lb,col]=RP_LV[x.lv],h=this.hh,x0=RP_X+48;
         c.fillStyle='#FFFFFF';c.strokeStyle=RP_LN;c.lineWidth=2;rpRound(c,RP_X,y,RP_CW,h,14);c.fill();c.stroke();
@@ -2675,7 +2696,7 @@ function rpBlocks(l){
         let yy=y+36;c.font=rpF(600,19);const bw=c.measureText(lb).width+28;c.fillStyle=col;rpRound(c,x0,yy-4,bw,34,17);c.fill();c.fillStyle='#fff';c.fillText(lb,x0+14,yy+20);
         c.font=rpF(700,28);c.fillStyle=RP_TX;rpText(c,this.T,x0+bw+16,yy+23,42);yy+=this.T.length*42+12;
         c.font=rpF(500,24);c.fillStyle=RP_TX;rpText(c,this.N,x0,yy+26,37);if(this.N.length)yy+=this.N.length*37+14;
-        c.font=rpF(400,23);c.fillStyle='#3C4852';rpText(c,this.Bd,x0,yy+26,36);yy+=this.Bd.length?this.Bd.length*36+18:4;
+        rpTextEm(c,this.Bd,x0,yy+26,36,23,'#3C4852',RP_TX);yy+=this.Bd.length?this.Bd.length*36+18:4;
         c.font=rpF(600,23);c.fillStyle=RP_ACC;rpText(c,this.A,x0,yy+26,36);}});
       if(x.id==='tip_womenBiz')wbPush();});
     gap(12);}
