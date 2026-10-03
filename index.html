@@ -157,6 +157,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 .nums.c2 .nl{min-width:4.8em} /* 라벨 폭 통일 → 칸 세로 정렬 */
 @media (max-width:640px){.nums.c2{grid-template-columns:max-content}}
 .num{display:flex;align-items:center;gap:6px}
+.nums.grid2{display:grid;grid-template-columns:repeat(2,max-content);gap:8px 24px}.nums.grid2 .num.full{grid-column:1/-1;flex-wrap:wrap}.nums.grid2 .nl{min-width:4.2em}
+@media(max-width:640px){.nums.grid2{grid-template-columns:max-content}}
 .nl{min-width:54px;font-size:14.5px;font-weight:600}
 .nb{width:44px;height:44px;flex:none;display:grid;place-items:center;padding:0;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:21px;line-height:1;cursor:pointer}
 .numin.wide{width:78px}
@@ -743,7 +745,7 @@ const PICK={
   bizType:{groups:[{t:'과세 유형',o:['간이과세','일반과세','면세'],oc:['과세','면세','협회']},{t:'업종',m:1,o:['음식점','카페','소매','도소매','온라인 판매','건설','제조','서비스','임대·렌탈','기타']}],memo:'세부 업종'},
   openDate:{groups:[],steps:[{n:'y',t:'연도',unit:'년',base:THIS_Y,len:4},{n:'m',t:'월',unit:'월',min:1,max:12,wrap:1}]},
   initCost:{groups:[{t:'총 투자 규모',o:['1천만 미만','1천~3천만','3천~5천만','5천만~1억','1억 이상']},{t:'포함 내역',o:['인테리어','권리금','시설·장비','차량','초도 물품'],m:1},{t:'증빙',o:['세금계산서 있음','일부만 있음','증빙 없음']}],memo:'금액 메모'},
-  staff:{nums:[['ins4','4대보험'],['biz33','3.3%'],['daily','일용직'],['unreg','미신고'],['foreign','외국인',0],['family','가족']],groups:[{t:'외국인',o:['신고중','미신고'],inline:1}],v:3},
+  staff:{nums:[['ins4','4대보험',1],['biz33','3.3%'],['daily','일용직'],['family','가족'],['unreg','미신고'],['foreign','외국인',0]],numsGrid:1,numsFull:['ins4','foreign'],groups:[{t:'외국인',o:['신고중','미신고'],inline:1},{t:'4대보험 확인',o:['비과세(식대비·유류비)','두루누리'],m:1,inline:1}],v:3}, // 4대보험 줄 / 3.3%·일용직 / 가족·미신고 / 외국인
   rent:{groups:[{t:'사업장',o:['임차','자가','무상 사용']},{t:'월세',o:['100만 미만','100~200만','200~300만','300만 이상']},{t:'임대인',o:['일반과세자','간이과세자','비사업자 개인','법인']}],memo:'보증금·월세 금액'},
   cardReg:{nopre:1,groups:[{t:'홈택스 사업용 카드',o:['등록 완료','미등록','사업용 카드 없음']}],memo:'메모',only:'indiv'},
   rightsContract:{groups:[{t:'권리금',o:['권리금 있음','권리금 없음'],only:'hid'},{t:'계약서',o:['계약서 있음','계약서 없음'],hide:[0,'권리금 없음']},{t:'세금 처리',o:['세금계산서 발행','기타소득 원천징수','미처리'],hide:[0,'권리금 없음']},{t:'권리금 금액',o:['1천만 미만','1천~3천만','3천~5천만','5천만~1억','1억 이상'],hide:[0,'권리금 없음']}],memo:'금액 메모'},
@@ -1038,7 +1040,7 @@ function grpHTML(k,c,pred){return c.groups.map((g,i)=>!pred(g)?'':`<div class="g
 function pickHTML(k){
   const c=PICK[k];if(c.custom)return taxSimHTML(k);
   const nL=c.numsLabel||'인원',nS=c.numsSub===undefined?'대표 제외':c.numsSub,nU=c.numsUnit||'명';
-  return grpHTML(k,c,g=>g.first)+(c.nums?`<div class="grp"><span class="gl">${nL}${nS?`<small>${nS}</small>`:''}</span><div class="nums${c.numsCols?' c'+c.numsCols:''}">${c.nums.map(([n,t,gi])=>`<div class="num"><span class="nl">${t}</span>`
+  return grpHTML(k,c,g=>g.first)+(c.nums?`<div class="grp"><span class="gl">${nL}${nS?`<small>${nS}</small>`:''}</span><div class="nums${c.numsCols?' c'+c.numsCols:''}${c.numsGrid?' grid2':''}">${c.nums.map(([n,t,gi])=>`<div class="num${(c.numsFull||[]).includes(n)?' full':''}"><span class="nl">${t}</span>`
       +`<button type="button" class="nb" data-k="${k}" data-n="${n}" data-inc="-1" aria-label="${t} ${nL} 줄이기">−</button>`
       +`<input class="fin numin" data-k="${k}" data-role="n" data-n="${n}" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="–" aria-label="${t} ${nL}">`
       +`<button type="button" class="nb" data-k="${k}" data-n="${n}" data-inc="1" aria-label="${t} ${nL} 늘리기">+</button><span class="unit">${nU}</span>`
@@ -1383,6 +1385,8 @@ function hoText(l){
       if(N('foreign')){const fs=one('staff',0);x+=(x?' ':'')+`외국인 직원 ${N('foreign')}분이 있${fs==='신고중'?'고 신고중입니다.':fs==='미신고'?'는데 신고가 안 되어 있습니다.':'습니다.'}`;}
       if(N('family'))x+=(x?' ':'')+`가족 ${N('family')}분이 함께 일하고 계십니다.`;
     }else if(has('total'))x=`대표님 직원은 ${N('total')}분이시라고 합니다.`; // 예전 기록
+    { const ck=G('staff',1),w=[ck.includes('비과세(식대비·유류비)')?'식대·유류비 비과세 적용 여부':'',ck.includes('두루누리')?'두루누리 지원 가능 여부':''].filter(Boolean);
+      if(w.length)x+=(x?' ':'')+`4대보험 직원 ${w.join('와 ')} 체크 부탁드립니다.`; }
     if(T('staff'))x+=(x?' ':'')+fin(T('staff'));
     if(x)B.push(x);
   }
@@ -2175,7 +2179,7 @@ const RP_TIPS=[
     act:'저희와 함께하시면 저희가 직접 개발해 쓰고 있는 급여계산기를 드립니다. 직원별 출퇴근·휴게시간만 넣으면 주휴수당까지 반영된 정확한 급여를 바로 확인하실 수 있어, 매달 급여 계산에 드는 시간과 실수를 함께 줄여 드리겠습니다.'},
   {id:'durunuri',k:'두루누리',t:'두루누리 사회보험료 지원',now:h=>h.staffNow,
     body:'**근로자 10명 미만 사업장**이 **월평균보수 270만 원 미만**인 근로자를 새로 4대보험에 가입시키면, **고용보험과 국민연금 보험료의 80%를 최대 36개월까지** 사업주와 근로자 모두 지원받을 수 있습니다. 건강보험과 산재보험은 지원 대상이 아닙니다.',
-    act:'직원별로 지원 대상인지 확인하고 신청을 챙겨 드리겠습니다.'},
+    act:h=>h.duruChk&&h.ins4?`4대보험 직원 ${h.ins4}명이 두루누리 지원 대상인지 확인하고, 해당되면 신청까지 챙겨 드리겠습니다.`:'직원별로 지원 대상인지 확인하고 신청을 챙겨 드리겠습니다.'},
   {id:'taxHire',k:'통합고용세액공제',t:'통합고용세액공제',now:h=>h.ins4?`4대보험에 가입한 직원이 ${h.ins4}명 있습니다.`:h.staffNow,
     body:h=>'직전 연도보다 상시근로자 수가 늘어나면 **늘어난 인원에 대해 3년에 걸쳐 소득세를 공제받을 수 있고**, 늘어난 인원을 유지할수록 2·3년차 공제 금액이 더 커집니다. **청년·장애인·60세 이상 직원이나 수도권 밖 사업장은 공제 금액이 더 큽니다**. 다만 **창업중소기업 세액감면을 받는 해에는 함께 받을 수 없어** 어느 쪽이 유리한지 따져 봐야 합니다.'
       +(h.stFin?` 대표님은 창업감면이 ${h.stFin}년까지라, **감면이 끝나는 ${h.stFin+1}년부터는 늘어난 직원만큼 통합고용세액공제를** 받을 수 있어 두 제도를 이어서 활용하시면 됩니다.`:''),
@@ -2204,7 +2208,7 @@ const RP_TIPS=[
     act:'소득에 맞는 납부 금액을 정해 절세 효과를 계산해 드리겠습니다.'},
   {id:'meal',k:'급여 비과세',t:'급여 비과세',now:h=>h.staffNow,
     body:'직원에게 식사를 따로 제공하지 않고 식대를 급여에 포함해 주는 경우 **식대는 월 20만 원까지 비과세됩니다**. 직원이 **본인 차량을 직접 운전해 업무에 쓰고** 출장 여비를 따로 받지 않는다면, 회사 규정에 따라 주는 **자가운전보조금도 월 20만 원까지 비과세됩니다**. 급여를 정할 때 이런 항목을 나눠 두면 같은 인건비로 **직원의 세금과 4대보험 부담을 줄일 수 있습니다**.',
-    act:'급여 명세를 비과세 항목에 맞게 짜 드리겠습니다.'},
+    act:h=>h.mealChk&&h.ins4?`4대보험 직원 ${h.ins4}명의 급여에 식대·자가운전보조금 비과세가 적용되어 있는지 확인하고, 빠져 있으면 급여 명세를 다시 짜 드리겠습니다.`:'급여 명세를 비과세 항목에 맞게 짜 드리겠습니다.'},
   {id:'corp',k:'법인 검토',t:h=>h.corp?'법인 운영 점검':h.planAdd?'개인사업 법인 전환과 비교':'법인 전환 검토',prep:'최근 2~3년 손익 자료',now:h=>h.corp?'법인으로 운영하고 계십니다.':h.planAdd?'법인을 새로 세우는 방법 외에, 지금 개인사업을 법인으로 전환하는 방법도 함께 비교해 볼 수 있습니다.':'',
     body:h=>h.corp?'법인은 대표님 급여, 배당, 퇴직금을 어떻게 짜느냐에 따라 법인과 대표님 개인이 내는 **전체 세금이 크게 달라집니다**. 법인 자금을 정해진 절차 없이 가져가면 **가지급금으로 남아 인정이자와 추가 세금 부담이 생기므로**, 자금 흐름을 처음부터 관리하는 것이 중요합니다.'
       :'매출과 이익이 커지면 **최고 45%까지 올라가는 종합소득세율보다 낮은 법인세율** 구간을 적용받아 법인 전환이 유리해질 수 있습니다. 다만 법인 자금은 급여나 배당으로만 가져갈 수 있고 회계·4대보험 관리 부담도 늘어나므로, **이익 규모와 자금 사용 계획을 함께 따져 봐야 합니다**. 현물출자나 사업양수도 방식으로 전환하면 요건에 따라 **양도소득세 이월과세, 남은 감면 기간 승계** 같은 혜택도 검토할 수 있습니다.',
@@ -2250,6 +2254,7 @@ function rpState(l){const r=l.fields.rp=l.fields.rp||{ex:{},memo:''};r.ex=r.ex||
     const g=(((sel.guided||{}).g||[])[0])||[];r.add=[...new Set(g.map(v=>RP_TIP_FROM_GUIDED[v]).filter(Boolean))];}
   if(!isCorpLog(l)){r.txm=r.txm||[]; // 절세 시뮬레이션에서 새로 고른 항목은 보완점 카드도 한 번 켜 둠
     ((((sel.taxSim||{}).g||[])[0])||[]).forEach(v=>{if(r.txm.includes(v))return;r.txm.push(v);const id=TX_TIP[v];if(id&&!r.add.includes(id))r.add.push(id);});}
+  r.stm=r.stm||[];((((sel.staff||{}).g||[])[1])||[]).forEach(v=>{if(r.stm.includes(v))return;r.stm.push(v);const id={'비과세(식대비·유류비)':'meal','두루누리':'durunuri'}[v];if(id&&!r.add.includes(id))r.add.push(id);}); // 직원 사항 버튼 → 보완점 한 번 켜 둠
   if(!r.wbAuto&&ageEval(sel.ceoAge).sex==='여'){r.wbAuto=1;if(!r.add.includes('womenBiz'))r.add.push('womenBiz');} // 여성 대표: 여성기업 확인서 보완점 한 번 켜 둠
   if(r.brief===undefined){const pa=sel.prevAgent||{};r.brief=!!(((pa.n||{}).fee)||(((pa.g||[])[0]||[])[0]==='신고대리'));} // 기존 세무사가 있으면 기본 '핵심만'
   return r;}
@@ -2273,7 +2278,7 @@ function rpData(l){
   F('창업 당시 나이',ae.age?ae.bandTxt+(ae.m?` (병역 ${ae.mTxt})`:ae.mil==='병역 이행'?' (병역 이행)':''):'');
   { const a=salesTxt(S('sales')),b=one('sales',1),c=corp?'':one('sales',2);F('매출 규모',[a?'연 '+won(a)+(b?` (${{작년:'작년 실적',올해:'올해 예상'}[b]||b})`:''):b,{'복식부기대상자':dblNext?'개업 첫해 간편장부 (곧 복식부기 대상)':'복식부기 대상','성실신고 대상자':'성실신고확인 대상','간편장부':'간편장부 대상'}[c]||'',T('sales')].filter(Boolean).join(' / ')); }
   const tx=corp||hid('taxSim')?null:txCalc(l);if(tx)F(tx.th?'올해 예상 종합소득세':'작년 종합소득세','약 '+txWon(tx.T0));
-  F('직원',sel.staff?selText('staff',sel.staff):'');
+  F('직원',sel.staff?selText('staff',{...sel.staff,g:[((sel.staff.g||[])[0])||[]]}):''); // 비과세·두루누리 버튼은 보완점 카드로
   { const a=one('rent',0),b=one('rent',1),c=one('rent',2);F('임대 상황',[a,b?'월세 '+won(b):'',c?'임대인 '+c:'',T('rent')].filter(Boolean).join(' / ')); }
   F('사업용 카드',one('cardReg',0));
   F('차량',one('vehicle',0)==='차량 없음'?'없음':vehTxt(S('vehicle')));
@@ -2526,6 +2531,7 @@ function rpData(l){
     staffNow:stf?`직원 ${stf}명${SK.length>1?`(${SK.map(([k,lb])=>lb+' '+N(k)+'명').join(', ')})`:''}을 고용하고 계십니다.`:'',
     planAdd:stg.plan==='add',newCorp:!!stg.plan||(corp&&pre),stFin:stFin&&stFin>=cy?stFin:0,
     cap:!adr.trim()||/강화|옹진|가평|연천/.test(adr)?'':/서울|경기|인천/.test(adr)?'수도권':'밖',
+    duruChk:G('staff',1).includes('두루누리'),mealChk:G('staff',1).includes('비과세(식대비·유류비)'),
     wbSpouse:pOw==='배우자'&&ae.sex!=='여',wbTop:shList(pS).every(x=>(+x.pct||0)<=pRp)};
   const rpImp=((l.fields.rp||{}).imp)||{};
   const tipsAll=RP_TIPS.filter(x=>!(x.dup||[]).some(d=>I.some(y=>y.id===d))).map(x=>{const f=v=>typeof v==='function'?v(hh):v;const id='tip_'+x.id;return{id,key:x.id,k:x.k,on:tipOn(x.id),lv:rpImp[id]?'tipHi':'tip',t:f(x.t),now:rpEmStrip(f(x.now)),body:f(x.body),act:rpEmStrip(f(x.act)),prep:x.prep};}); // 검토 의견 목록에 모두 깔고 넣음/뺌

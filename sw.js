@@ -1,5 +1,5 @@
 /* 상담일지 서비스워커 — 코드를 고쳐 올릴 때마다 아래 버전 숫자만 올리면 됨 */
-const CACHE = 'sangdam-v44';
+const CACHE = 'sangdam-v45';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
