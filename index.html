@@ -661,11 +661,11 @@ const HO_KEYS=HO.map(x=>x[0]);
 const INFO_ITEMS=[['ceoAge','대표 나이·성별'],['sales','매출 규모'],['taxSim','종소세·절세'],['prevAgent','기존 기장']];
 const SUBS={initCost:[['asset','고정자산 등록']],cardReg:[['bizAcct','사업용계좌']],ceoAge:[['relief','창업감면']]};
 const SUB_KEYS=new Set(Object.values(SUBS).flat().map(x=>x[0]));
-const PANEL_NAME={cardReg:'사업용 신용카드·계좌'};
+const PANEL_NAME={cardReg:'사업용 신용카드·계좌',ceoAge:'대표 나이·성별·창업감면'};
 /* 체크리스트 화면 순서: 보고서·내보내기 순서는 위 목록 그대로, 화면만 이 순서로 */
-const PANEL_INFO=INFO_ITEMS.filter(([k])=>k!=='taxSim');
+const PANEL_INFO=INFO_ITEMS.filter(([k])=>k!=='taxSim').map(([k,n])=>[k,PANEL_NAME[k]||n]);
 const PANEL_LEFT=(()=>{const m=Object.fromEntries([...LEFT,...INFO_ITEMS]);
-  return['openDate','initCost','rightsContract','staff','rent','cardReg','vehicle','loanPlan','taxSim'].map(k=>[k,PANEL_NAME[k]||m[k]]);})();
+  return['initCost','rightsContract','staff','rent','cardReg','vehicle','loanPlan','taxSim'].map(k=>[k,PANEL_NAME[k]||m[k]]);})();
 const THIS_Y=new Date().getFullYear();
 const yy=y=>String(y%100).padStart(2,'0');
 /* ----- 종소세 절세 시뮬레이션 (개인사업자, 금액은 만원 단위) -----
@@ -1051,6 +1051,7 @@ function pickHTML(k){
 function buildPanel(){
   $('#panel').innerHTML=`
   <section id="secInfo"><h2>업체 정보</h2>
+    ${itemHTML('openDate',NAME.openDate)}
     <div class="item entityItem" data-item="entity"><div class="ihead"><h3>사업자 구분</h3></div>${pickHTML('entity')}</div>
     <div class="item only-conv" data-item="convPlan"><div class="ihead"><h3>법인전환 계획</h3>${incHTML('convPlan')}</div>${pickHTML('convPlan')}${shHTML('convPlan')}</div>
     <div class="item" data-item="bizType"><div class="ihead"><h3>업종/형태</h3>${incHTML('bizType')}</div>${pickHTML('bizType')}</div>
