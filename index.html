@@ -161,7 +161,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .shWho{box-sizing:border-box;width:132px;flex:none;height:44px;padding:0 10px;font-size:15.5px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:inherit}
 .shLead{display:inline-flex;align-items:center;font-weight:600;cursor:default}
 .shDel{width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:22px;cursor:pointer}
-.shAdd{align-self:flex-start;margin-top:2px}
+.shAdd{align-self:flex-start;margin-top:2px}.shAdd[hidden]{display:none}
 .shSum{margin:2px 0 0;font-size:14px;color:var(--muted)}.shSum.ok{color:var(--accent)}.shSum.warn{color:var(--neg)}
 .numin{width:60px;padding:0 4px;text-align:center;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
 .unit{font-size:14px;color:var(--muted)}
@@ -990,8 +990,9 @@ function shRender(k){const box=$('#shl_'+k);if(!box||!cur)return;const s=selOf(k
   box.querySelectorAll('.shWho').forEach(el=>{const v=(L[+el.dataset.shi]||{}).who||'';if(el.value!==v&&ae!==el)el.value=v;});
   box.querySelectorAll('[data-shpct]').forEach(el=>{const v=String((L[+el.dataset.shi]||{}).pct??'');if(el.value!==v&&ae!==el)el.value=v;});
   const rp=+((s.n||{}).pct)||0,tot=rp+shSumOf(s),el=$('#shs_'+k);
+  const ab=document.querySelector(`[data-shadd="${k}"]`);if(ab)ab.hidden=tot>=100; // 100% 다 나누면 추가 버튼 숨김, 1%라도 남으면 다시
   el.className='shSum'+(tot===100?' ok':L.length&&tot<100?' warn':'');
-  el.textContent=!L.length?(rp?`지금은 대표 ${rp}%만 있어요. 다른 주주가 있으면 추가해 주세요.`:''):`합계 ${tot}%`+(tot===100?' — 다 나눴어요.':` — ${100-tot}% 남았어요.`);}
+  el.textContent=!L.length?(rp>=100?'대표 100%예요. 다른 주주를 넣으려면 대표 지분을 줄여 주세요.':rp?`지금은 대표 ${rp}%만 있어요. 다른 주주가 있으면 추가해 주세요.`:''):`합계 ${tot}%`+(tot===100?' — 다 나눴어요.':` — ${100-tot}% 남았어요.`);}
 function shAfter(k,s){s.v=2;setField(k,selText(k,s));syncPanel();markDirty('log');refreshSteps();}
 $('#panel').addEventListener('click',e=>{if(!cur)return;
   const ad=e.target.closest('[data-shadd]'),inc=e.target.closest('[data-shinc]'),del=e.target.closest('[data-shdel]');if(!ad&&!inc&&!del)return;
@@ -1243,6 +1244,7 @@ $('#view-sheet').addEventListener('input',e=>{
   else if(t.dataset.role==='n'){const k=t.dataset.k,s=selW(k),d=t.value.replace(/\D/g,'').slice(0,t.maxLength>0?t.maxLength:3);if(t.value!==d)t.value=d;
     s.n=s.n||{};s.v=2;s.n[t.dataset.n]=d===''?'':String(+d);stepFill(k,s);
     if(PICK[k].share&&shFitRep(s)){t.value=s.n.pct||'';toast('다른 주주 지분이 있어서 대표 지분은 '+(s.n.pct||0)+'%까지예요.');}
+    if(PICK[k].share)shRender(k); // 직접 입력 중에도 합계·추가 버튼 바로 반영
     setField(k,selText(k,s));numHint(k);
     if(milSync(k))syncPanel();else ageNote();}
   else if(t.dataset.role){const k=t.dataset.k,s=selW(k);s[t.dataset.role]=t.value;setField(k,selText(k,s));}
