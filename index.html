@@ -156,6 +156,12 @@ button,input,textarea,select{font:inherit;color:inherit}
 .nl{min-width:54px;font-size:14.5px;font-weight:600}
 .nb{width:44px;height:44px;flex:none;display:grid;place-items:center;padding:0;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:21px;line-height:1;cursor:pointer}
 .numin.wide{width:78px}
+.shBox{display:flex;flex-direction:column;gap:8px;min-width:0}.shList{display:flex;flex-direction:column;gap:8px}.shList:empty{display:none}
+.shRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.shWho{width:auto;min-width:118px;height:44px;padding:0 10px;font-size:15.5px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:inherit}
+.shDel{width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:22px;cursor:pointer}
+.shAdd{align-self:flex-start;margin-top:2px}
+.shSum{margin:2px 0 0;font-size:14px;color:var(--muted)}.shSum.ok{color:var(--accent)}.shSum.warn{color:var(--neg)}
 .numin{width:60px;padding:0 4px;text-align:center;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
 .unit{font-size:14px;color:var(--muted)}
 .numhint{margin:0;min-height:0;font-size:13.5px;color:var(--muted)}
@@ -719,7 +725,7 @@ const DEFAULT_WRITER='';
 /* 선택식 항목: groups[{t,o,m(여러 개)}], date(날짜칸 이름), memo(직접 입력칸 이름) */
 const PICK={
   convPlan:{groups:[{t:'법인 업종',m:1,o:['음식점','카페','소매','도소매','온라인 판매','건설','제조','서비스','임대·렌탈','기타']},{t:'주주 구성',o:['대표 1인','가족 공동','외부 주주 포함']},{t:'자본금',o:['1천만 이하','1천만~5천만','5천만~1억','1억 이상']}],
-    steps:[{n:'pct',t:'대표 지분',unit:'%',max:100,len:3,z:1}],memo:'메모',ph:'예: 개인사업 순자산 약 8천만, 배우자 30%',only:'indiv',conv:1},
+    steps:[{n:'pct',t:'대표 지분',unit:'%',max:100,len:3,z:1}],share:1,memo:'메모',ph:'예: 개인사업 순자산 약 8천만, 배우자 30%',only:'indiv',conv:1},
   entity:{groups:[{t:'구분',o:['개인사업자','법인사업자']},{t:'단계',s:'운영 중이면 비워 두기',o:['개업 예정','설립 예정','개인사업자 추가 예정','법인 추가 설립 예정','법인전환 예정'],oo:{'개업 예정':'indiv','설립 예정':'corp','법인전환 예정':'indiv'}}]},
   corpEst:{groups:[{t:'설립',o:['신설 법인','개인사업자에서 전환','기존 법인 인수']},{t:'자본금',o:['1천만 이하','1천만~5천만','5천만~1억','1억 이상']}],memo:'메모',only:'corp'},
   shareholders:{groups:[{t:'주주 구성',o:['대표 1인','가족 공동','외부 주주 포함']},{t:'확인',o:['차명주식 있음','지분 정리 필요'],m:1}],memo:'지분 메모',ph:'예: 대표 70%, 배우자 30%',only:'corp'},
@@ -965,7 +971,43 @@ function txUI(){const el=$('#txOut');if(!el||!cur)return;const s=selOf('taxSim')
     +(r.ny||r.no?`<p class="txNote">지역 ${r.reg}${r.regAuto?'(주소 기준)':''} · 1명 늘리면 3년간 청년 등 ${txWon(TX_HIRE.y[r.ri].reduce((a,b)=>a+b))}, 청년 외 ${txWon(TX_HIRE.o[r.ri].reduce((a,b)=>a+b))} (인원 유지 시, 최저한세 전)</p>`:'')
     +(y1.alt?`<p class="txNote">창업감면과 ${y1.alt==='창업감면'?'통합고용·중소기업특별세액감면':y1.alt}은 함께 받을 수 없어 유리한 쪽(${y1.alt})으로 계산했어요.</p>`:'');}
 const icls=k=>(PICK[k].only?' only-'+PICK[k].only:'')+(PICK[k].nopre?' no-pre':'');
-function itemHTML(k,n){return`<div class="item${icls(k)}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}`
+const SH_WHO=['배우자','자녀','부모','형제자매','친척','지인','직원','투자자','기타'];
+function shHTML(k){return`<div class="grp shGrp"><span class="gl">다른 주주<small>대표 포함 100% 안에서</small></span><div class="shBox"><div class="shList" id="shl_${k}"></div>`
+  +`<button type="button" class="btn shAdd" data-shadd="${k}">＋ 주주 추가</button><p class="shSum" id="shs_${k}" aria-live="polite"></p></div></div>`;}
+/* 주주 지분: s.n.pct = 대표, s.sh = [{who,pct}] — 합계 100% 넘지 않게 */
+const shList=s=>(s&&s.sh||[]),shSumOf=(s,skip)=>shList(s).reduce((a,x,i)=>a+(i===skip?0:(+x.pct||0)),0);
+function shareTxt(s,repLb){const rp=+((s&&s.n||{}).pct)||0;
+  return[rp?`${repLb} ${rp}%`:'',...shList(s).filter(x=>x.who||+x.pct).map(x=>`${x.who||'주주'} ${+x.pct||0}%`)].filter(Boolean).join(', ');}
+function shFitRep(s){ // 대표 지분을 올려서 넘치면 다른 주주 몫만큼 깎음
+  const n=s.n=s.n||{},rp=+n.pct||0,ot=shSumOf(s);if(rp+ot<=100)return false;const v=Math.max(0,100-ot);n.pct=v?String(v):'';return true;}
+function shRender(k){const box=$('#shl_'+k);if(!box||!cur)return;const s=selOf(k),L=shList(s),ae=document.activeElement;
+  if(box.children.length!==L.length)box.innerHTML=L.map((x,i)=>`<div class="shRow"><select class="shWho" data-shk="${k}" data-shi="${i}" aria-label="주주 ${i+1} 관계"><option value="">관계 선택</option>${SH_WHO.map(o=>`<option>${o}</option>`).join('')}</select>`
+    +`<div class="num"><button type="button" class="nb" data-shk="${k}" data-shi="${i}" data-shinc="-5" aria-label="지분 5% 줄이기">−</button>`
+    +`<input class="fin numin" data-shk="${k}" data-shi="${i}" data-shpct="1" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="0" aria-label="주주 ${i+1} 지분">`
+    +`<button type="button" class="nb" data-shk="${k}" data-shi="${i}" data-shinc="5" aria-label="지분 5% 늘리기">+</button><span class="unit">%</span></div>`
+    +`<button type="button" class="shDel" data-shk="${k}" data-shdel="${i}" aria-label="주주 ${i+1} 빼기">×</button></div>`).join('');
+  box.querySelectorAll('.shWho').forEach(el=>{const v=(L[+el.dataset.shi]||{}).who||'';if(el.value!==v&&ae!==el)el.value=v;});
+  box.querySelectorAll('[data-shpct]').forEach(el=>{const v=String((L[+el.dataset.shi]||{}).pct??'');if(el.value!==v&&ae!==el)el.value=v;});
+  const rp=+((s.n||{}).pct)||0,tot=rp+shSumOf(s),el=$('#shs_'+k);
+  el.className='shSum'+(tot===100?' ok':L.length&&tot<100?' warn':'');
+  el.textContent=!L.length?(rp?`지금은 대표 ${rp}%만 있어요. 다른 주주가 있으면 추가해 주세요.`:''):`합계 ${tot}%`+(tot===100?' — 다 나눴어요.':` — ${100-tot}% 남았어요.`);}
+function shAfter(k,s){s.v=2;setField(k,selText(k,s));syncPanel();markDirty('log');refreshSteps();}
+$('#panel').addEventListener('click',e=>{if(!cur)return;
+  const ad=e.target.closest('[data-shadd]'),inc=e.target.closest('[data-shinc]'),del=e.target.closest('[data-shdel]');if(!ad&&!inc&&!del)return;
+  const k=(ad||inc||del).dataset.shadd||(inc||del).dataset.shk,s=selW(k);s.sh=shList(s).slice();
+  if(ad){const left=Math.max(0,100-(+((s.n||{}).pct)||0)-shSumOf(s));s.sh.push({who:'',pct:left?String(left):''});
+    if(!left)toast('남은 지분이 없어요. 대표 지분을 줄이고 나눠 주세요.');}
+  else if(del)s.sh.splice(+del.dataset.shdel,1);
+  else{const i=+inc.dataset.shi,x=s.sh[i]={...s.sh[i]},cap=100-(+((s.n||{}).pct)||0)-shSumOf(s,i);let v=(+x.pct||0)+(+inc.dataset.shinc);
+    if(v>cap){v=Math.max(0,cap);if(+inc.dataset.shinc>0)toast('지분 합계는 100%를 넘을 수 없어요.');}x.pct=v>0?String(v):'';}
+  shAfter(k,s);});
+$('#view-sheet').addEventListener('input',e=>{const t=e.target;if(!cur||!t.dataset.shk)return;
+  const k=t.dataset.shk,i=+t.dataset.shi,s=selW(k);s.sh=shList(s).slice();const x=s.sh[i]={...s.sh[i]};
+  if(t.classList.contains('shWho'))x.who=t.value;
+  else{let d=t.value.replace(/\D/g,'').slice(0,3);const cap=Math.max(0,100-(+((s.n||{}).pct)||0)-shSumOf(s,i));
+    if(d!==''&&+d>cap){d=String(cap);toast('지분 합계는 100%를 넘을 수 없어요.');}if(t.value!==d)t.value=d;x.pct=d===''?'':String(+d);}
+  shAfter(k,s);});
+function itemHTML(k,n){return`<div class="item${icls(k)}" data-item="${k}"><div class="ihead"><h3>${n}</h3>${incHTML(k)}</div>${pickHTML(k)}${PICK[k].share?shHTML(k):''}`
   +(SUBS[k]||[]).map(([q,qn])=>`<div class="sub${icls(q)}" data-item="${q}"><div class="shd"><h4>${qn}</h4>${incHTML(q)}</div>${pickHTML(q)}</div>`).join('')+'</div>';}
 function grpHTML(k,c,pred){return c.groups.map((g,i)=>!pred(g)?'':`<div class="grp${g.only?' only-'+g.only:''}"${g.hide?` data-hk="${k}" data-hg="${g.hide[0]}" data-hv="${esc(g.hide[1])}"`:''}><span class="gl">${g.t}${g.m?'<small>여러 개 선택</small>':g.s?`<small>${g.s}</small>`:''}</span><div class="chips" role="group" aria-label="${esc(NAME[k]+' '+g.t)}">${
       (g.oc?[...g.o.map(o=>[o,' only-indiv']),...g.oc.map(o=>[o,' only-corp'])]:g.o.map(o=>[o,g.oo&&g.oo[o]?' only-'+g.oo[o]:''])).map(([o,oc])=>`<button type="button" class="chip${oc}" data-k="${k}" data-g="${i}" data-o="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div></div>`).join('');}
@@ -996,7 +1038,7 @@ function buildPanel(){
   $('#panel').innerHTML=`
   <section id="secInfo"><h2>업체 정보</h2>
     <div class="item entityItem" data-item="entity"><div class="ihead"><h3>사업자 구분</h3></div>${pickHTML('entity')}</div>
-    <div class="item only-conv" data-item="convPlan"><div class="ihead"><h3>법인전환 계획</h3>${incHTML('convPlan')}</div>${pickHTML('convPlan')}</div>
+    <div class="item only-conv" data-item="convPlan"><div class="ihead"><h3>법인전환 계획</h3>${incHTML('convPlan')}</div>${pickHTML('convPlan')}${shHTML('convPlan')}</div>
     <div class="item" data-item="bizType"><div class="ihead"><h3>업종/형태</h3>${incHTML('bizType')}</div>${pickHTML('bizType')}</div>
     ${PANEL_INFO.map(([k,n])=>itemHTML(k,n)).join('')}
   </section>
@@ -1040,7 +1082,8 @@ function selText(k,s){
   const cfg=PICK[k],parts=[];if(cfg.custom)return txText(s);if(k==='relief')relYr(s);
   if(cfg.nums){const n=s.n||{},a=cfg.nums.filter(([x])=>n[x]!==undefined&&n[x]!=='').map(([x,t,gi])=>`${t} ${n[x]}명${gi!==undefined&&(s.g&&s.g[gi]||[]).length?'('+s.g[gi].join(', ')+')':''}`);if(a.length)parts.push(a.join(', '));}
   cfg.groups.forEach((g,i)=>{if(g.inline)return;let v=(s.g&&s.g[i])||[];if(k==='ceoAge'&&i===0&&s.old&&v[0]==='만 39세 이하')v=[s.old];if(v.length)parts.push(v.join(', '));});
-  if(cfg.steps){const n=s.n||{},a=cfg.steps.filter(x=>n[x.n]).map(x=>`${x.label?x.t+' ':''}${n[x.n]}${x.unit}`);if(a.length)parts.push(a.join(' '));}
+  if(cfg.share){const t=shareTxt(s,'대표');if(t)parts.push(t);}
+  else if(cfg.steps){const n=s.n||{},a=cfg.steps.filter(x=>n[x.n]).map(x=>`${x.label?x.t+' ':''}${n[x.n]}${x.unit}`);if(a.length)parts.push(a.join(' '));}
   if(s.d)parts.push(s.d);if(s.t&&s.t.trim())parts.push(s.t.trim());
   return parts.join(' / ');
 }
@@ -1094,7 +1137,7 @@ function syncPanel(){
   const v=$('#view-sheet'),ae=document.activeElement;
   v.querySelectorAll('input[data-key]').forEach(i=>{const x=getField(i.dataset.key);if(i.value!==x&&ae!==i)i.value=x;});
   v.querySelectorAll('[data-role]').forEach(i=>{const so=selOf(i.dataset.k);const x=String((i.dataset.role==='n'?(so.n||{})[i.dataset.n]:so[i.dataset.role])??'');if(i.value!==x&&ae!==i)i.value=x;});
-  for(const k in PICK)if(PICK[k].nums)numHint(k);
+  for(const k in PICK){if(PICK[k].nums)numHint(k);if(PICK[k].share)shRender(k);}
   $('#panel').classList.toggle('corp',isCorpLog(cur));
   { const sg=stageOf(cur);$('#panel').classList.toggle('pre',sg.pre);$('#panel').classList.toggle('conv',!!sg.plan);if(sg.plan)planUI(sg.plan);const h=document.querySelector('[data-item="openDate"] .iname')||document.querySelector('[data-item="openDate"] h3');if(h)h.textContent=sg.pre?(sg.corp?'설립 예정 시기':'개업 예정 시기'):'개업 일시'; }
   v.querySelectorAll('.chip').forEach(b=>{const s=selOf(b.dataset.k);b.setAttribute('aria-pressed',String(((s.g&&s.g[+b.dataset.g])||[]).includes(b.dataset.o)));});
@@ -1175,6 +1218,7 @@ $('#panel').addEventListener('click',e=>{
       else{x=isNaN(v)?(inc>0?sp.min:NaN):v+inc;if(x<sp.min)x=NaN;}                                  // 최소값 아래로 내리면 비움
       s.n[sp.n]=isNaN(x)?'':String(x);stepFill(k,s);}
     else s.n[nb.dataset.n]=String(Math.max(0,Math.min(999,(isNaN(v)?0:v)+inc)));
+    if(PICK[k].share&&shFitRep(s)&&inc>0)toast('다른 주주 지분이 있어서 대표 지분은 '+((s.n.pct||0))+'%까지예요.');
     setField(k,selText(k,s));milSync(k);}
   else if(c){const k=c.dataset.k,i=+c.dataset.g,o=c.dataset.o,g=PICK[k].groups[i],s=selW(k);
     let a=(s.g[i]||[]).slice();const keep=k==='ceoAge'&&i===0&&s.old&&a.includes(o); // 예전 구간 확인: 눌린 칩을 다시 누르면 그대로 확정
@@ -1196,7 +1240,9 @@ $('#view-sheet').addEventListener('input',e=>{
   const t=e.target;if(!cur)return;
   if(t.dataset.key)setField(t.dataset.key,t.value);
   else if(t.dataset.role==='n'){const k=t.dataset.k,s=selW(k),d=t.value.replace(/\D/g,'').slice(0,t.maxLength>0?t.maxLength:3);if(t.value!==d)t.value=d;
-    s.n=s.n||{};s.v=2;s.n[t.dataset.n]=d===''?'':String(+d);stepFill(k,s);setField(k,selText(k,s));numHint(k);
+    s.n=s.n||{};s.v=2;s.n[t.dataset.n]=d===''?'':String(+d);stepFill(k,s);
+    if(PICK[k].share&&shFitRep(s)){t.value=s.n.pct||'';toast('다른 주주 지분이 있어서 대표 지분은 '+(s.n.pct||0)+'%까지예요.');}
+    setField(k,selText(k,s));numHint(k);
     if(milSync(k))syncPanel();else ageNote();}
   else if(t.dataset.role){const k=t.dataset.k,s=selW(k);s[t.dataset.role]=t.value;setField(k,selText(k,s));}
   else return;
@@ -1238,10 +1284,10 @@ function hoText(l){
     out.push(ost==='개업 예정'?`${ym} ${preW}이신 ${who}입니다.`:ost==='인수 개업'?`${ym}에 사업을 인수하여 영위중이신 ${who}입니다.`
       :ost==='폐업 후 재개업'?`${ym}에 재개업하여 사업을 영위중이신 ${who}입니다.`:`${ym}부터 사업을 영위중이신 ${who}입니다.`);}
   else if(ost||tax)out.push(ost==='개업 예정'?`${preW}이신 ${who}입니다.`:`사업을 영위중이신 ${who}입니다.`);
-  if(stg.conv){const cp=[G('convPlan',0).length?`법인 업종 ${G('convPlan',0).join('·')}`:'',one('convPlan',1)?`주주 ${one('convPlan',1)}`:'',(S('convPlan').n||{}).pct?`대표 지분 ${S('convPlan').n.pct}%`:'',one('convPlan',2)?`자본금 ${one('convPlan',2)}`:''].filter(Boolean);
+  if(stg.conv){const cp=[G('convPlan',0).length?`법인 업종 ${G('convPlan',0).join('·')}`:'',one('convPlan',1)?`주주 ${one('convPlan',1)}`:'',shareTxt(S('convPlan'),'대표')?`지분 ${shareTxt(S('convPlan'),'대표')}`:'',one('convPlan',2)?`자본금 ${one('convPlan',2)}`:''].filter(Boolean);
     out.push(`법인전환을 계획하고 계십니다${cp.length?`(${cp.join(', ')})`:''}.`+(T('convPlan')?' '+fin(T('convPlan')):''));}
   if(stg.add==='indiv')out.push('개인사업자를 하나 더 낼 계획이십니다.');
-  else if(stg.add){const cp=[G('convPlan',0).length?`법인 업종 ${G('convPlan',0).join('·')}`:'',one('convPlan',1)?`주주 ${one('convPlan',1)}`:'',(S('convPlan').n||{}).pct?`대표 지분 ${S('convPlan').n.pct}%`:'',one('convPlan',2)?`자본금 ${one('convPlan',2)}`:''].filter(Boolean);
+  else if(stg.add){const cp=[G('convPlan',0).length?`법인 업종 ${G('convPlan',0).join('·')}`:'',one('convPlan',1)?`주주 ${one('convPlan',1)}`:'',shareTxt(S('convPlan'),'대표')?`지분 ${shareTxt(S('convPlan'),'대표')}`:'',one('convPlan',2)?`자본금 ${one('convPlan',2)}`:''].filter(Boolean);
     out.push(`법인을 추가로 설립할 계획이십니다${cp.length?`(${cp.join(', ')})`:''}.`+(T('convPlan')?' '+fin(T('convPlan')):''));}
 
   // 첫 문단: 창업감면 · 사업용계좌
@@ -2174,7 +2220,7 @@ function rpData(l){
   F('사업자 구분',(corp?'법인사업자':(one('entity',0)||''))+(stg.st&&stg.st!=='운영 중'?` (${stg.st})`:''));
   F('업종·과세유형',[G('bizType',1).join(', '),one('bizType',0),T('bizType')].filter(Boolean).join(' / '));
   F(pre&&corp?'설립':'개업',op.Y&&pre?`${op.Y}년${op.M?' '+op.M+'월':''} ${corp?'설립':'개업'} 예정`:op.txt);
-  if(stg.plan){const pn=(S('convPlan').n||{}).pct;F(planName(stg.plan),[G('convPlan',0).join(', '),one('convPlan',1)+(pn?` (대표 ${pn}%)`:''),one('convPlan',2)?'자본금 '+one('convPlan',2):''].filter(x=>x&&x.trim()).join(' / '));}
+  if(stg.plan){const st=shareTxt(S('convPlan'),'대표');F(planName(stg.plan),[G('convPlan',0).join(', '),one('convPlan',1)+(st?` (${st})`:''),one('convPlan',2)?'자본금 '+one('convPlan',2):''].filter(x=>x&&x.trim()).join(' / '));}
   F('사업장 소재지',d.address);
   const ae=ageEval(S('ceoAge'));
   F('창업 당시 나이',ae.age?ae.bandTxt+(ae.m?` (병역 ${ae.mTxt})`:ae.mil==='병역 이행'?' (병역 이행)':''):'');
@@ -2249,14 +2295,14 @@ function rpData(l){
         '급여 수준과 정관 규정을 함께 설계해 드리겠습니다.'); } }
   if(stg.add)
     add('addBiz','mid',stg.add==='indiv'?'개인사업자 추가와 세금':'법인 추가 설립과 세금',stg.add==='indiv'?'개인사업자를 하나 더 낼 계획이십니다.':(()=>{const pn=(S('convPlan').n||{}).pct,cap=one('convPlan',2),sh=one('convPlan',1),bz=G('convPlan',0); // 법인 추가 설립 계획 칸
-        return '법인을 추가로 설립할 계획이십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.join('·'))} 생각하고 계십니다.`:'')+(sh||pn?` 주주는 ${roJ([sh,pn?`대표님 지분 ${pn}%`:''].filter(Boolean).join(', '))} 계획하고 계십니다.`:'')+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
+        return '법인을 추가로 설립할 계획이십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.join('·'))} 생각하고 계십니다.`:'')+((st=>sh||st?` ${[sh?`주주는 ${roJ(sh)}`:'',st?`지분은 ${roJ(st)}`:''].filter(Boolean).join(', ')} 계획하고 계십니다.`:'')(shareTxt(S('convPlan'),'대표님')))+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
       '새 사업자가 기존 사업을 넓히거나 업종만 더한 경우, 또는 기존 사업의 자산을 넘겨받아 같은 종류의 사업을 하는 경우는 세법상 창업으로 보지 않아 창업중소기업 세액감면을 받을 수 없습니다.'
         +(stg.add==='indiv'?' 또 개인사업 소득은 대표님의 다른 소득과 합쳐 종합소득세를 계산하므로 세율이 올라갈 수 있고, 복식부기·성실신고 같은 장부 의무도 사업장 매출을 합쳐 판단합니다.'
           :' 법인은 대표님 개인과 따로 세금을 내므로 소득이 나뉘는 효과가 있지만, 두 사업 사이의 거래와 비용 분담, 대표님 급여를 처음부터 나눠 정해 두어야 합니다.'),
       '새 사업이 창업으로 인정되는지와 세금 부담을 미리 따져 사업자 형태와 시점을 정해 드리겠습니다.');
   if(stg.conv) // 조특법 §6⑩2 · §32①②④ → §31④
     add('conv','mid','법인전환 방식과 감면 승계',(()=>{const pn=(S('convPlan').n||{}).pct,cap=one('convPlan',2),sh=one('convPlan',1),bz=G('convPlan',0);
-      return '법인전환을 계획하고 계십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.join('·'))} 생각하고 계십니다.`:'')+(sh||pn?` 주주는 ${roJ([sh,pn?`대표님 지분 ${pn}%`:''].filter(Boolean).join(', '))} 계획하고 계십니다.`:'')+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
+      return '법인전환을 계획하고 계십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.join('·'))} 생각하고 계십니다.`:'')+((st=>sh||st?` ${[sh?`주주는 ${roJ(sh)}`:'',st?`지분은 ${roJ(st)}`:''].filter(Boolean).join(', ')} 계획하고 계십니다.`:'')(shareTxt(S('convPlan'),'대표님')))+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
       '개인사업을 법인으로 바꾸는 것은 세법상 새로 창업한 것으로 보지 않아, 법인이 창업중소기업 세액감면을 처음부터 다시 받을 수는 없습니다. 다만 사업용 자산을 현물출자하거나 요건을 갖춘 사업 양도·양수로 전환하면 개인 때 받던 창업감면의 남은 기간을 법인이 이어받을 수 있고, 사업용 부동산의 양도소득세도 나중으로 미룰 수 있습니다. 이때 새 법인의 자본금이 개인사업의 순자산 이상이어야 하는 등 요건이 있고, 전환 시점과 방식에 따라 세금이 크게 달라지므로 미리 계산해 보는 것이 좋습니다.',
       '전환 방식별 세금과 감면 승계 여부를 계산해 유리한 시점과 방법을 안내해 드리겠습니다.');
   const bk=bk0,s0=one('sales',0);
