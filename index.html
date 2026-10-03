@@ -758,7 +758,7 @@ const PICK={
       {t:'병역',o:['병역 이행','미필·면제'],hide:[0,'만 34세 이하']}],
     steps:[{n:'my',t:'복무 기간',unit:'년',max:9,len:1,z:1,hide:[0,'만 34세 이하']},{n:'mm',t:'복무 개월',unit:'개월',max:11,len:2,z:1,join:1}],
     memo:'메모',ph:'예: 84년생, 공군 장교 7년',note:1},
-  sales:{groups:[{t:'연 매출',o:['5천만 미만','5천만~1억','1억~3억','3억~10억','10억 이상']},{t:'기준',o:['작년','올해']},{t:'장부',o:['간편장부','복식부기대상자','성실신고 대상자'],only:'indiv'}],memo:'금액 메모'},
+  sales:{groups:[{t:'연 매출',o:['5천만 미만','5천만~1억','1억~3억','3억~10억','10억 이상'],only:'hid'},{t:'기준',o:['작년','올해'],after:1},{t:'장부',o:['간편장부','복식부기대상자','성실신고 대상자'],only:'indiv',after:1}],steps:[{n:'e',t:'연 매출',unit:'억',max:99,len:2,z:1},{n:'c',t:'천만',unit:'천만',max:9,len:1,z:1,join:1},{n:'b',t:'백만',unit:'백만',max:9,len:1,z:1,join:1}],memo:'금액 메모'},
   prevAgent:{nopre:1,groups:[{t:'현재',o:['없음','신고대리','협회']}],steps:[{n:'fee',t:'월 기장료',unit:'만원',min:3,sub:'3만원부터',label:1}]},
   /* 인수인계 */
   bizAcct:{nopre:1,groups:[{t:'등록',o:['등록','미등록','대표 모름']}],memo:'메모',only:'indiv'},
@@ -1092,8 +1092,14 @@ document.getElementById('panel').addEventListener('click',e=>{
   const t=e.target.closest('.itog');if(t){const it=t.closest('.item');setOpen(it,it.classList.contains('shut'));saveSettings();return;}
   const f=e.target.closest('[data-fold]');if(f){f.closest('section').querySelectorAll('.item[data-item]').forEach(it=>setOpen(it,f.dataset.fold==='1'));saveSettings();}
 });
+/* 연 매출: 억·천만·백만 → '7억 5천만', 백만 단위 숫자 */
+function salesAmt(s){const n=(s&&s.n)||{};return(+n.e||0)*100+(+n.c||0)*10+(+n.b||0);}
+function salesTxt(s){const n=(s&&s.n)||{},e=+n.e||0,c=+n.c||0,b=+n.b||0;
+  if(!e&&!c&&!b)return((s&&s.g&&s.g[0])||[])[0]||'';
+  return[e?e+'억':'',c||b?(c?c+'천':'')+(b?b+'백':'')+'만':''].filter(Boolean).join(' ');}
 function selText(k,s){
   const cfg=PICK[k],parts=[];if(cfg.custom)return txText(s);if(k==='relief')relYr(s);
+  if(k==='sales'){const a=salesTxt(s),v=[a?'연 '+a:'',...[1,2].map(i=>((s.g&&s.g[i])||[]).join(', '))];if(s.t&&s.t.trim())v.push(s.t.trim());return v.filter(Boolean).join(' / ');}
   if(cfg.nums){const n=s.n||{},a=cfg.nums.filter(([x])=>n[x]!==undefined&&n[x]!==''&&!(cfg.numsSkip0&&!+n[x])).map(([x,t,gi])=>`${t} ${n[x]}${cfg.numsUnit||'명'}${gi!==undefined&&(s.g&&s.g[gi]||[]).length?'('+s.g[gi].join(', ')+')':''}`);if(a.length)parts.push(a.join(', '));}
   cfg.groups.forEach((g,i)=>{if(g.inline)return;let v=(s.g&&s.g[i])||[];if(k==='ceoAge'&&i===0&&s.old&&v[0]==='만 39세 이하')v=[s.old];if(v.length)parts.push(v.join(', '));});
   if(cfg.share){const t=shareTxt(s,'대표');if(t)parts.push(t);}
@@ -1367,7 +1373,7 @@ function hoText(l){
     const iw=ws.length<2?(ws[0]||''):ws.slice(0,-1).join(', ').replace(/([^,]+)$/,m=>josa(m,'과','와'))+' '+ws[ws.length-1];
     if(iw)x.push(stg.pre?`대표님이 ${josa(iw,'을','를')} ${ws.every(w=>/음식점|카페/.test(w))?'운영하실':'하실'} 예정입니다.`:`대표님이 ${josa(iw,'을','를')} ${ws.every(w=>/음식점|카페/.test(w))?'운영하고':'하고'} 계십니다.`);
     if(det)x.push(iw?(/[다요]\.?$/.test(det)?fin(det):`세부 업종은 ${det}입니다.`):`대표님이 ${det} 사업을 하고 계십니다.`);
-    const s0=one('sales',0);
+    const s0=salesTxt(S('sales'));
     if(s0)x.push(`연 매출은 ${won(s0)} 수준${one('sales',1)==='올해'?'으로 예상하십니다.':'입니다.'}`);
     const bk=corp?'':{'간편장부':'간편장부 대상자입니다.','복식부기대상자':'복식부기 대상자입니다.','성실신고 대상자':'성실신고 대상자입니다.'}[one('sales',2)];
     if(bk)x.push(bk);
@@ -2246,7 +2252,7 @@ function rpData(l){
   F('사업장 소재지',d.address);
   const ae=ageEval(S('ceoAge'));
   F('창업 당시 나이',ae.age?ae.bandTxt+(ae.m?` (병역 ${ae.mTxt})`:ae.mil==='병역 이행'?' (병역 이행)':''):'');
-  { const a=one('sales',0),b=one('sales',1),c=corp?'':one('sales',2);F('매출 규모',[a?'연 '+won(a)+(b?` (${{작년:'작년 실적',올해:'올해 예상'}[b]||b})`:''):b,{'복식부기대상자':dblNext?'복식부기 전환 예상':'복식부기 대상','성실신고 대상자':'성실신고확인 대상','간편장부':'간편장부 대상'}[c]||'',T('sales')].filter(Boolean).join(' / ')); }
+  { const a=salesTxt(S('sales')),b=one('sales',1),c=corp?'':one('sales',2);F('매출 규모',[a?'연 '+won(a)+(b?` (${{작년:'작년 실적',올해:'올해 예상'}[b]||b})`:''):b,{'복식부기대상자':dblNext?'복식부기 전환 예상':'복식부기 대상','성실신고 대상자':'성실신고확인 대상','간편장부':'간편장부 대상'}[c]||'',T('sales')].filter(Boolean).join(' / ')); }
   const tx=corp||hid('taxSim')?null:txCalc(l);if(tx)F('작년 종합소득세','약 '+txWon(tx.T0));
   F('직원',sel.staff?selText('staff',sel.staff):'');
   { const a=one('rent',0),b=one('rent',1),c=one('rent',2);F('임대 상황',[a,b?'월세 '+won(b):'',c?'임대인 '+c:'',T('rent')].filter(Boolean).join(' / ')); }
@@ -2336,7 +2342,7 @@ function rpData(l){
       return '법인전환을 계획하고 계십니다.'+(bz.length?` 법인 업종은 ${roJ(bz.join('·'))} 생각하고 계십니다.`:'')+((st=>sh||st?` ${[sh?`주주는 ${roJ(sh)}`:'',st?`지분은 ${roJ(st)}`:''].filter(Boolean).join(', ')} 계획하고 계십니다.`:'')(shareTxt(S('convPlan'),'대표님')))+(cap?` 자본금은 ${cap} 규모를 생각하고 계십니다.`:'');})(),
       '개인사업을 법인으로 바꾸는 것은 세법상 새로 창업한 것으로 보지 않아, 법인이 창업중소기업 세액감면을 처음부터 다시 받을 수는 없습니다. 다만 사업용 자산을 현물출자하거나 요건을 갖춘 사업 양도·양수로 전환하면 개인 때 받던 창업감면의 남은 기간을 법인이 이어받을 수 있고, 사업용 부동산의 양도소득세도 나중으로 미룰 수 있습니다. 이때 새 법인의 자본금이 개인사업의 순자산 이상이어야 하는 등 요건이 있고, 전환 시점과 방식에 따라 세금이 크게 달라지므로 미리 계산해 보는 것이 좋습니다.',
       '전환 방식별 세금과 감면 승계 여부를 계산해 유리한 시점과 방법을 안내해 드리겠습니다.');
-  const bk=bk0,s0=one('sales',0);
+  const bk=bk0,s0=salesTxt(S('sales')),sAmt=salesAmt(S('sales'));
   if(bk==='성실신고 대상자')
     add('sincere','high','성실신고확인 대상',sb==='올해'?'올해 예상 매출로 보면 성실신고확인 대상자에 해당할 수 있습니다.':'매출 규모상 성실신고확인 대상자로 확인되었습니다.',
       '성실신고확인 대상자는 종합소득세 신고 때 세무대리인의 확인서를 함께 내야 하며, 신고 기한이 6월 30일까지입니다. 확인 비용의 60%(연 120만 원 한도)를 세액공제받고 의료비·교육비 세액공제도 받을 수 있습니다. 확인서를 내지 않으면 가산세가 붙고 세무조사 대상으로 선정될 수 있습니다.',
@@ -2354,8 +2360,8 @@ function rpData(l){
     add('simple','info','기장세액공제','간편장부 대상자로 확인되었습니다.',
       '간편장부 대상자가 복식부기로 장부를 써서 신고하면 산출세액의 20%(100만 원 한도)를 기장세액공제로 줄일 수 있습니다. 적자가 나도 장부가 있어야 결손금을 다음 해로 넘겨 세금을 줄일 수 있습니다.',
       '복식부기로 기장해 공제를 받으실 수 있게 하겠습니다.');
-  if(one('bizType',0)==='간이과세'&&['1억~3억','3억~10억','10억 이상'].includes(s0))
-    add('simpleTax','mid','일반과세자 전환 가능성',`간이과세자이신데 연 매출이 ${won(s0)} 구간입니다.`,
+  if(one('bizType',0)==='간이과세'&&(sAmt?sAmt>=104:['1억~3억','3억~10억','10억 이상'].includes(s0)))
+    add('simpleTax','mid','일반과세자 전환 가능성',`간이과세자이신데 연 매출이 ${won(s0)}${sAmt?' 수준':' 구간'}입니다.`,
       '간이과세자는 1년 매출(공급대가)이 1억 400만 원 이상이 되면 다음 해 7월부터 일반과세자로 바뀝니다. 일반과세자가 되면 부가세 부담과 신고 방식이 달라지고 세금계산서 발급 의무가 생기므로 미리 준비해야 합니다.',
       '전환 시점과 바뀌는 신고 일정을 미리 안내해 드리겠습니다.');
   const p0=one('prevAgent',0);
