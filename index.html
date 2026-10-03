@@ -676,8 +676,11 @@ const txMin=t=>.35*Math.min(t,3000)+.45*Math.max(0,t-3000);
 const txYelLim=x=>x<=4000?600:x<=6000?500:x<=10000?400:200;
 function txWon(m){m=Math.round(m||0);const e=Math.floor(m/10000),r=m%10000;return e?`${e}억${r?' '+r.toLocaleString()+'만':''} 원`:`${r.toLocaleString()}만 원`;}
 function txIn(s){const n=(s&&s.n)||{},v=x=>Math.max(0,+n[x]||0);return(n.eon?v('e')*10000:0)+v('c')*1000+v('b')*100;}
-function txText(s){const n=s.n||{},g=s.g||[],v=x=>+n[x]||0,T=txIn(s),on=g[0]||[],p=[];
-  if(T)p.push('작년 종소세 '+txWon(T));if(on.length)p.push('놓친 절세: '+on.join(', '));
+/* 기준: 작년(이렇게 했었으면) / 올해(이렇게 낮춰 드리겠다) — 안 고르면 작년 */
+const txThis=s=>((((s||{}).g||[])[5]||[])[0])==='올해';
+const TX_YL=['올해','내년','내후년'],txYL=(th,i)=>th?TX_YL[i]:(i+1)+'년차';
+function txText(s){const n=s.n||{},g=s.g||[],v=x=>+n[x]||0,T=txIn(s),on=g[0]||[],p=[],th=txThis(s);
+  if(T)p.push((th?'올해 예상 종소세 ':'작년 종소세 ')+txWon(T));if(on.length)p.push((th?'적용할 절세: ':'놓친 절세: ')+on.join(', '));
   if(on.includes('통합고용세액공제')&&(v('ny')||v('no')))p.push(`청년 등 ${v('ny')}명·청년 외 ${v('no')}명`);
   if(on.includes('경조사비')&&v('gj'))p.push(`경조사비 연 ${txWon(Math.min(12,v('gj'))*100)}`);
   [1,2,3,4].forEach(i=>{if((g[i]||[]).length)p.push(PICK.taxSim.groups[i].t+' '+g[i][0]);});return p.join(' / ');}
@@ -709,7 +712,7 @@ function txCalc(l){
     if(stR){const b=year(hire,true);if(!(hire||smeR))r=b;else if(b.fin<r.fin){r=b;alt='창업감면';}else alt=hire?'통합고용':'중소기업특별세액감면';}
     return{...r,hire,alt,save:T0-r.fin};});
   const items=[];Y.forEach((y,i)=>y.P.forEach(([k,a])=>{let it=items.find(x=>x[0]===k);if(!it)items.push(it=[k,[0,0,0]]);it[1][i]+=a;}));
-  return{T0,B0,MT,reg,regAuto:!(g[1]||[])[0],ny,no,ri,Y,items,tot:Y.reduce((a,y)=>a+y.save,0),blk:Y.reduce((a,y)=>a+y.blk,0),blkHire:Y.reduce((a,y)=>a+y.blkHire,0)};
+  return{th:txThis(s),T0,B0,MT,reg,regAuto:!(g[1]||[])[0],ny,no,ri,Y,items,tot:Y.reduce((a,y)=>a+y.save,0),blk:Y.reduce((a,y)=>a+y.blk,0),blkHire:Y.reduce((a,y)=>a+y.blkHire,0)};
 }
 const CERTS=['벤처기업','이노비즈','메인비즈','여성기업','ISO'];
 /* 법인 체크리스트 (법인사업자일 때만 보임) */
@@ -744,7 +747,7 @@ const PICK={
   loanPlan:{groups:[{t:'대출 계획',o:['계획 있음','계획 없음']},{t:'금액',o:['3천만','5천만','1억','1억 이상'],hide:[0,'계획 없음']},{t:'종류',o:['정책자금 대출','부동산 대출','신용 대출','시설·장비 대출'],m:1,hide:[0,'계획 없음']}],memo:'대출 메모',ph:'예: 내년 상반기 매장 확장 때'},
   vehicle:{nums:[['own','개인 명의'],['corp','법인 명의'],['rent','렌트'],['lease','리스']],numsCols:2,numsLabel:'대수',numsSub:'명의별',numsUnit:'대',numsSkip0:1,groups:[{t:'해당 없음',o:['차량 없음']}],memo:'차종 메모',v:3},
   /* 영업 정보 */
-  taxSim:{nopre:1,custom:1,only:'indiv',groups:[{t:'놓치고 있던 절세',o:TX_ITEMS,m:1},{t:'지역',o:['수도권','수도권 밖']},{t:'노란우산 연 납입',o:['200만','300만','400만','500만','600만']},{t:'중소기업특별세액감면',o:['5%','10%','15%','20%','30%']},{t:'창업감면율',o:['25%','50%','75%','100%']}],
+  taxSim:{nopre:1,custom:1,only:'indiv',groups:[{t:'놓치고 있던 절세',o:TX_ITEMS,m:1},{t:'지역',o:['수도권','수도권 밖']},{t:'노란우산 연 납입',o:['200만','300만','400만','500만','600만']},{t:'중소기업특별세액감면',o:['5%','10%','15%','20%','30%']},{t:'창업감면율',o:['25%','50%','75%','100%']},{t:'기준',o:['작년','올해']}],
     steps:[{n:'e',t:'억',unit:'억',max:9,len:1,z:1},{n:'c',t:'천만',unit:'천만',max:9,len:1,z:1},{n:'b',t:'백만',unit:'백만',max:9,len:1,z:1},{n:'ny',t:'청년 등',unit:'명',max:30,len:2,z:1,nl:1},{n:'gj',t:'경조사비',unit:'백만 원',max:12,len:2,z:1},{n:'no',t:'청년 외',unit:'명',max:30,len:2,z:1,nl:1}]},
   /* 창업감면 청년: 조특법 §6①1, 시행령 §5①1(창업 당시 15~34세, 병역 기간 최대 6년 차감 — 병역 범위는 시행령 §27①1 각 목)
      청년일자리도약장려금 청년창업기업: 2026 사업운영 지침 — 대표 만 15~39세(창업일·참여신청일 모두), 개업 7년 이내 */
@@ -950,9 +953,9 @@ function txStep(k,sp){return`<div class="num">${sp.nl?`<span class="nl">${sp.t}<
 function taxSimHTML(k){const c=PICK[k],S=n=>txStep(k,c.steps.find(x=>x.n===n));
   const chips=i=>`<div class="chips" role="group" aria-label="${esc(c.groups[i].t)}">${c.groups[i].o.map(o=>`<button type="button" class="chip" data-k="${k}" data-g="${i}" data-o="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div>`;
   const sub=(nm,lb,sm,inner)=>`<div class="grp txSub" data-txs="${esc(nm)}"><span class="gl">${lb}${sm?`<small>${sm}</small>`:''}</span><div>${inner}</div></div>`;
-  return`<div class="grp"><span class="gl">작년 종소세<small>산출세액 기준</small></span><div><div class="nums txAmt"><span class="txEok">${S('e')}</span>${S('c')}${S('b')}`
+  return`<div class="grp"><span class="gl"><span class="txYrLb">작년</span> 종소세<small>산출세액 기준</small></span><div><div class="txYrPick" style="margin-bottom:10px">${chips(5)}</div><div class="nums txAmt"><span class="txEok">${S('e')}</span>${S('c')}${S('b')}`
     +`<button type="button" class="btn txEokBtn" data-txeok>억 단위 추가</button></div><p class="txSum" id="txSum"></p></div></div>`
-    +`<div class="grp"><span class="gl">놓친 절세<small>여러 개 선택</small></span>${chips(0)}</div>`
+    +`<div class="grp"><span class="gl"><span class="txOnLb">놓친 절세</span><small>여러 개 선택</small></span>${chips(0)}</div>`
     +sub('통합고용세액공제','늘릴 인원','청년 등: 청년·60세 이상·장애인',`<div class="nums">${S('ny')}${S('no')}</div>`)
     +sub('통합고용세액공제','사업장 지역','안 고르면 주소로 판단',chips(1))
     +sub('경조사비','연 경조사비','100만~1,200만 원',`<div class="nums">${S('gj')}</div>`)
@@ -962,13 +965,15 @@ function taxSimHTML(k){const c=PICK[k],S=n=>txStep(k,c.steps.find(x=>x.n===n));
     +`<div class="txOut" id="txOut" aria-live="polite"></div>`
     +`<p class="txWarn">※ 상담 때 들은 내용으로 계산한 추정치예요. 실제 종합소득세 신고 때는 장부·공제 내역에 따라 금액에 오차가 있을 수 있으니 대표님께도 그렇게 안내해 주세요.</p>`;}
 function txUI(){const el=$('#txOut');if(!el||!cur)return;const s=selOf('taxSim'),n=s.n||{},on=((s.g||[])[0])||[];
+  const th=txThis(s);document.querySelectorAll('.txYrLb').forEach(x=>x.textContent=th?'올해':'작년');document.querySelectorAll('.txOnLb').forEach(x=>x.textContent=th?'적용할 절세':'놓친 절세');
+  if(!(((s.g||[])[5])||[]).length){const b=document.querySelector('.chip[data-k="taxSim"][data-g="5"][data-o="작년"]');if(b)b.setAttribute('aria-pressed','true');} // 안 고르면 작년으로 보임
   const a=$('.txAmt');if(a)a.classList.toggle('eon',!!n.eon);const eb=$('.txEokBtn');if(eb)eb.textContent=n.eon?'억 단위 빼기':'억 단위 추가';
   document.querySelectorAll('.txSub').forEach(g=>g.classList.toggle('on',on.includes(g.dataset.txs)));
   const r=txCalc(cur);$('#txSum').textContent=txIn(s)?'= '+txWon(txIn(s)):'';
-  if(!r||!on.length){el.innerHTML=r?'<p class="txNote" style="margin:0">놓치고 있던 절세를 고르면 줄어드는 세금이 바로 보여요.</p>':'';return;}
+  if(!r||!on.length){el.innerHTML=r?'<p class="txNote" style="margin:0">'+(th?'올해 적용할 절세를':'놓치고 있던 절세를')+' 고르면 줄어드는 세금이 바로 보여요.</p>':'';return;}
   const mx=r.T0,y1=r.Y[0];
   el.innerHTML=`<p class="txBig">3년간 약 ${txWon(r.tot)} 절세</p>`
-    +r.Y.map((y,i)=>`<div class="txRow"><span>${i+1}년차</span><div class="txBar"><i style="width:${(y.fin/mx*100).toFixed(1)}%"></i></div><span>${txWon(r.T0)} − <em>${txWon(y.save)}</em> = <b class="txFin">${txWon(y.fin)}</b></span></div>`).join('')
+    +r.Y.map((y,i)=>`<div class="txRow"><span>${txYL(th,i)}</span><div class="txBar"><i style="width:${(y.fin/mx*100).toFixed(1)}%"></i></div><span>${txWon(r.T0)} − <em>${txWon(y.save)}</em> = <b class="txFin">${txWon(y.fin)}</b></span></div>`).join('')
     +`<p class="txNote">${r.items.map(([k,a])=>`${k} ${a.some((x,i)=>i&&x!==a[0])?a.map(x=>txWon(x).replace(' 원','')).join(' / '):txWon(a[0])+(a[1]?'씩':'')}`).join(' · ')}</p>`
     +`<p class="txNote">최저한세 ${txWon(r.MT)}: 감면·공제를 받아도 이 아래로는 줄지 않아요.${r.blk>=0.5?` 최저한세에 걸려 3년간 ${txWon(r.blk)}은 못 받아요`+(r.blkHire>=0.5?`(통합고용분 ${txWon(r.blkHire)}은 10년간 이월).`:'.'):''}</p>`
     +(r.ny||r.no?`<p class="txNote">지역 ${r.reg}${r.regAuto?'(주소 기준)':''} · 1명 늘리면 3년간 청년 등 ${txWon(TX_HIRE.y[r.ri].reduce((a,b)=>a+b))}, 청년 외 ${txWon(TX_HIRE.o[r.ri].reduce((a,b)=>a+b))} (인원 유지 시, 최저한세 전)</p>`:'')
@@ -1386,7 +1391,7 @@ function hoText(l){
     const bk=corp?'':{'간편장부':'간편장부 대상자입니다.','복식부기대상자':'복식부기 대상자입니다.','성실신고 대상자':'성실신고 대상자입니다.'}[one('sales',2)];
     if(bk)x.push(bk);
     if(T('sales'))x.push(fin(T('sales')));
-    if(!isEx(l,'taxSim')&&!hid('taxSim')){const r=txCalc(l);if(r){x.push(`작년 종합소득세는 약 ${txWon(r.T0)}이었습니다.`);
+    if(!isEx(l,'taxSim')&&!hid('taxSim')){const r=txCalc(l);if(r){x.push(r.th?`올해 종합소득세는 약 ${txWon(r.T0)}으로 예상됩니다.`:`작년 종합소득세는 약 ${txWon(r.T0)}이었습니다.`);
       if(r.items.length)x.push(`${josa(andList(r.items.map(i=>i[0])),'을','를')} 챙기면 3년간 약 ${txWon(r.tot)} 절세가 예상됩니다.`);}}
     lines(T('bizNote')).forEach(v=>x.push(fin(v)));
     const vn=one('vehicle',0)==='차량 없음',vt=vehTxt(S('vehicle')),vm=T('vehicle');
@@ -2175,9 +2180,6 @@ const RP_TIPS=[
   {id:'pension',k:'퇴직연금·푸른씨앗',t:'퇴직연금·푸른씨앗',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
     body:'**1년 이상, 주 15시간 이상 일한 직원에게는 퇴직금을 줘야 합니다**. 퇴직연금으로 매년 나눠 적립하면 퇴직 때 한꺼번에 큰돈이 나가는 부담을 줄일 수 있고, **확정기여형으로 낸 부담금은 그해 경비로 처리됩니다**. 30명 이하 사업장은 중소기업퇴직연금기금(푸른씨앗)에 가입하면 저임금 근로자에 대한 **사업주 부담금 일부를 지원받을 수 있습니다**.',
     act:'사업장에 맞는 퇴직연금 방식을 비교해 안내해 드리겠습니다.'},
-  {id:'hireSub',k:'채용 지원금',t:'직원 채용 지원금',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
-    body:'장애인, 고령자, 오래 구직 중인 분처럼 취업이 어려운 분을 채용하거나 출산·육아로 빈 자리에 대체인력을 쓰면 **고용노동부 고용장려금을 받을 수 있습니다**. 대부분 채용 전에 구직 등록이나 참여 신청 같은 요건을 갖춰야 하므로 **채용하기 전에 확인하는 것이 중요합니다**.',
-    act:'채용 계획을 알려 주시면 받을 수 있는 지원금을 미리 찾아 드리겠습니다.'},
   {id:'preSettle',k:'가결산',t:h=>h.corp?'결산 전 가결산':'종합소득세 가결산',prep:'올해 매출·비용 자료(카드·통장 내역)',now:()=>'',
     body:h=>h.corp?'사업연도가 끝나기 전에 그때까지의 장부로 가결산을 해 보면 **손익이 어떻게 마감될지 미리 알 수 있습니다**. 잘못 들어간 비용이나 빠진 비용, 가지급금처럼 결산 때 문제가 될 부분을 미리 바로잡을 수 있고, 예상 법인세를 보고 남은 기간 동안 비용 집행과 결산 방향을 정할 수 있습니다. **사업연도가 끝난 뒤에는 바꿀 수 있는 것이 거의 없어** 미리 보는 것이 중요합니다.'
       :'한 해가 끝나기 전에 그때까지의 장부로 가결산을 해 보면 **내년에 낼 종합소득세를 미리 알 수 있습니다**. 잘못 들어간 비용이나 빠진 비용을 연말 전에 바로잡을 수 있고, 예상 세액을 보고 남은 기간 동안 절세 방법을 적용하거나 납부 자금을 미리 준비할 수 있습니다. **해가 바뀐 뒤에는 바꿀 수 있는 것이 거의 없어** 미리 보는 것이 중요합니다.',
@@ -2258,7 +2260,7 @@ function rpData(l){
   const ae=ageEval(S('ceoAge'));
   F('창업 당시 나이',ae.age?ae.bandTxt+(ae.m?` (병역 ${ae.mTxt})`:ae.mil==='병역 이행'?' (병역 이행)':''):'');
   { const a=salesTxt(S('sales')),b=one('sales',1),c=corp?'':one('sales',2);F('매출 규모',[a?'연 '+won(a)+(b?` (${{작년:'작년 실적',올해:'올해 예상'}[b]||b})`:''):b,{'복식부기대상자':dblNext?'복식부기 전환 예상':'복식부기 대상','성실신고 대상자':'성실신고확인 대상','간편장부':'간편장부 대상'}[c]||'',T('sales')].filter(Boolean).join(' / ')); }
-  const tx=corp||hid('taxSim')?null:txCalc(l);if(tx)F('작년 종합소득세','약 '+txWon(tx.T0));
+  const tx=corp||hid('taxSim')?null:txCalc(l);if(tx)F(tx.th?'올해 예상 종합소득세':'작년 종합소득세','약 '+txWon(tx.T0));
   F('직원',sel.staff?selText('staff',sel.staff):'');
   { const a=one('rent',0),b=one('rent',1),c=one('rent',2);F('임대 상황',[a,b?'월세 '+won(b):'',c?'임대인 '+c:'',T('rent')].filter(Boolean).join(' / ')); }
   F('사업용 카드',one('cardReg',0));
@@ -2602,34 +2604,34 @@ function rpBlocks(l){
   const tipS=nt?` 함께 챙기시면 좋은 보완점 ${nt}가지도 정리했습니다.`+hiS:'';
   const sum=auto.length?`상담 때 말씀해 주신 내용을 바탕으로 살펴본 결과, 검토가 필요한 사항이 ${auto.length}건 있습니다.`+(nh?` 이 중 ${nh}건은 세금이나 가산세에 바로 영향을 줄 수 있어 우선 확인이 필요합니다.`:nm?` 이 중 ${nm}건은 미리 정리해 두시면 세금을 줄이는 데 도움이 됩니다.`:'')+tipS
     :nt?`상담 때 말씀해 주신 내용을 바탕으로 사업에 도움이 될 보완점 ${nt}가지를 정리했습니다.`+hiS:'상담 때 말씀해 주신 내용을 정리했습니다. 실제 자료를 확인하면 더 구체적인 검토 의견을 드릴 수 있습니다.';
-  const tx=R.tx,txSum=tx&&tx.tot>=1?` 특히 놓치고 계신 절세 항목을 챙기면 3년간 약 ${txWon(tx.tot)}의 세금을 줄일 수 있습니다.`:'';
+  const tx=R.tx,txSum=tx&&tx.tot>=1?(tx.th?` 특히 올해부터 절세 항목을 챙기면 3년간 약 ${txWon(tx.tot)}의 세금을 줄일 수 있습니다.`:` 특히 놓치고 계신 절세 항목을 챙기면 3년간 약 ${txWon(tx.tot)}의 세금을 줄일 수 있습니다.`):'';
   const secN=iss.filter(x=>x.sec).length+(txSec&&tx?1:0),secS=secN?' 일부 맞춤 방안은 계약 후 자세히 공개해 드립니다.':'';
   B.push({h(c){c.font=rpF(500,25);this.L=rpWrap(c,sum+txSum+secS,RP_CW-64);return this.L.length*40+56+28;},draw(c,y){
     const h=this.L.length*40+56;c.fillStyle='#E4F0EB';rpRound(c,RP_X,y,RP_CW,h,14);c.fill();c.fillStyle=RP_ACC;c.fillRect(RP_X,y+14,6,h-28);
     c.font=rpF(500,25);c.fillStyle='#163F35';rpText(c,this.L,RP_X+32,y+28+28,40);}});
   /* 한눈에 보는 절세 효과 (계산 근거·단가는 싣지 않음) */
   if(tx&&tx.tot>=1){const rows=tx.items,y1=tx.Y[0];
-    const foot='상담 때 말씀하신 작년 종합소득세 '+txWon(tx.T0)+'을 기준으로 최저한세까지 반영해 추정한 금액입니다(국세 기준, 지방소득세 별도). 같은 소득이 이어지고 늘린 인원을 유지한다고 보았으며, 실제 종합소득세 신고 때는 장부와 공제 내역에 따라 금액에 오차가 있을 수 있습니다.'
+    const foot='상담 때 말씀하신 '+(tx.th?'올해 예상 종합소득세 ':'작년 종합소득세 ')+txWon(tx.T0)+'을 기준으로 최저한세까지 반영해 추정한 금액입니다(국세 기준, 지방소득세 별도). 같은 소득이 이어지고 늘린 인원을 유지한다고 보았으며, 실제 종합소득세 신고 때는 장부와 공제 내역에 따라 금액에 오차가 있을 수 있습니다.'
       +(tx.blkHire>=0.5?(txSec?' 최저한세 때문에 바로 받지 못하는 공제 일부는 다음 해로 넘겨 쓸 수 있습니다.':' 최저한세 때문에 바로 받지 못하는 통합고용세액공제는 다음 해로 넘겨 쓸 수 있습니다.'):'');
     B.push({h(c){c.font=rpF(400,19);this.F=rpWrap(c,foot,RP_CW-80);this.hh=520+52+rows.length*48+20+this.F.length*30+30;return this.hh+28;},draw(c,y){
       const h=this.hh,X=RP_X+40,W=RP_CW-80;c.fillStyle='#FFFFFF';c.strokeStyle=RP_ACC;c.lineWidth=3;rpRound(c,RP_X,y,RP_CW,h,16);c.fill();c.stroke();
       c.font=rpF(700,22);c.fillStyle=RP_ACC;c.fillText('한눈에 보는 절세 효과',X,y+50);
       c.font=rpF(700,46);c.fillStyle=RP_TX;const t1='3년간 약 ',w1=c.measureText(t1).width;c.fillText(t1,X,y+116);c.fillStyle=pnCol(tx.tot);c.fillText(txWon(tx.tot),X+w1,y+116);
       {let xx=X;const seg=(t,w,sz,col)=>{c.font=rpF(w,sz);c.fillStyle=col;c.fillText(t,xx,y+164);xx+=c.measureText(t).width;};
-        seg('1년차 기준  ',500,24,RP_MU);seg(txWon(tx.T0),500,26,RP_TX);seg('  −  ',500,26,RP_MU);seg(txWon(y1.save),700,26,pnCol(y1.save));seg('  =  ',500,26,RP_MU);
+        seg(tx.th?'올해 예상  ':'1년차 기준  ',500,24,RP_MU);seg(txWon(tx.T0),500,26,RP_TX);seg('  −  ',500,26,RP_MU);seg(txWon(y1.save),700,26,pnCol(y1.save));seg('  =  ',500,26,RP_MU);
         const ft=txWon(y1.fin);c.font=rpF(800,30);const fw=c.measureText(ft).width;c.fillStyle='#E4F0EB';rpRound(c,xx-8,y+132,fw+16,44,8);c.fill();seg(ft,800,30,RP_ACC);}
       /* 막대 그래프 */
       const base=y+452,top=y+232,H=base-top,gw=W/3,bw=Math.min(96,gw*.28);
-      c.font=rpF(500,19);[['지금',RP_LN],['관리 후',RP_ACC]].forEach(([t,col],i)=>{const lx=X+W-250+i*120;c.fillStyle=col;rpRound(c,lx,y+190,20,20,4);c.fill();c.fillStyle=RP_MU;c.fillText(t,lx+28,y+207);});
+      c.font=rpF(500,19);[[tx.th?'예상 세액':'지금',RP_LN],['관리 후',RP_ACC]].forEach(([t,col],i)=>{const lx=X+W-250+i*120;c.fillStyle=col;rpRound(c,lx,y+190,20,20,4);c.fill();c.fillStyle=RP_MU;c.fillText(t,lx+28,y+207);});
       c.fillStyle=RP_LN;c.fillRect(X,base,W,2);
       tx.Y.forEach((yr,i)=>{const cx=X+gw*i+gw/2,vals=[[tx.T0,'#C9D3D9'],[yr.fin,RP_ACC]];
         vals.forEach(([v,col],j)=>{const bh=Math.max(2,v/tx.T0*(H-40)),bx=cx-bw-6+j*(bw+12);c.fillStyle=col;rpRound(c,bx,base-bh,bw,bh,6);c.fill();
           c.font=rpF(j?700:500,19);c.fillStyle=j?RP_ACC:RP_MU;const lb=txWon(v).replace(' 원','');c.fillText(lb,bx+bw/2-c.measureText(lb).width/2,base-bh-10);});
-        c.font=rpF(600,21);c.fillStyle=RP_TX;const xl=(i+1)+'년차';c.fillText(xl,cx-c.measureText(xl).width/2,base+34);
+        c.font=rpF(600,21);c.fillStyle=RP_TX;const xl=txYL(tx.th,i);c.fillText(xl,cx-c.measureText(xl).width/2,base+34);
         c.font=rpF(700,19);c.fillStyle=pnCol(yr.save);const sv='−'+txWon(yr.save).replace(' 원','');c.fillText(sv,cx-c.measureText(sv).width/2,base+62);});
       /* 항목별 */
       let yy=y+520;c.font=rpF(600,20);c.fillStyle=RP_MU;c.fillText('항목',X,yy+30);const c1=X+W-330,c2=X+W;
-      const R2=(g,t,x,yb)=>g.fillText(t,x-g.measureText(t).width,yb);R2(c,'1년차',c1,yy+30);R2(c,'3년 합계',c2,yy+30);yy+=52;
+      const R2=(g,t,x,yb)=>g.fillText(t,x-g.measureText(t).width,yb);R2(c,txYL(tx.th,0),c1,yy+30);R2(c,'3년 합계',c2,yy+30);yy+=52;
       const tbl=(g,ox,oy,sc)=>{let ty=oy;rows.forEach(([k,a],i)=>{const S=v=>sc?rpScr(v):v;if(i%2===0){g.fillStyle='#F4F7F8';g.fillRect(ox-12,ty-4,W+24,48);}g.font=rpF(500,22);g.fillStyle=RP_TX;g.fillText(S(k),ox,ty+28);
         g.font=rpF(500,22);g.fillStyle=a[0]>=0.5?pnCol(a[0]):RP_MU;R2(g,a[0]>=0.5?S(txWon(a[0])):'-',ox+W-330,ty+28);g.font=rpF(700,22);g.fillStyle=pnCol(a[0]+a[1]+a[2]);R2(g,S(txWon(a[0]+a[1]+a[2])),ox+W,ty+28);ty+=48;});};
       if(txSec){rpBlur(c,X-12,yy-4,W+24,rows.length*48,g=>tbl(g,12,4,1));rpLock(c,X+W/2,yy-4+rows.length*24);}else tbl(c,X,yy,0);yy+=rows.length*48;
