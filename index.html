@@ -958,7 +958,7 @@ function taxSimHTML(k){const c=PICK[k],S=n=>txStep(k,c.steps.find(x=>x.n===n));
     +sub('경조사비','연 경조사비','100만~1,200만 원',`<div class="nums">${S('gj')}</div>`)
     +sub('노란우산공제','연 납입액','',chips(2))
     +sub('중소기업특별세액감면','감면율','업종·규모·지역별',chips(3))
-    +sub('창업중소기업 세액감면','감면율','',chips(4))
+    +sub('창업중소기업 세액감면','창중소감면율','',chips(4))
     +`<div class="txOut" id="txOut" aria-live="polite"></div>`
     +`<p class="txWarn">※ 상담 때 들은 내용으로 계산한 추정치예요. 실제 종합소득세 신고 때는 장부·공제 내역에 따라 금액에 오차가 있을 수 있으니 대표님께도 그렇게 안내해 주세요.</p>`;}
 function txUI(){const el=$('#txOut');if(!el||!cur)return;const s=selOf('taxSim'),n=s.n||{},on=((s.g||[])[0])||[];
@@ -989,6 +989,11 @@ function shFitRep(s){ // 대표 지분을 올려서 넘치면 다른 주주 몫�
 function shWhoOpts(k,s,L){ // 법인 추가 설립을 가족 명의로 하면 대표 본인도 다른 주주로 고를 수 있게
   const ow=k==='convPlan'&&cur?planOwner(s,stageOf(cur).plan):'',o=ow?['대표 본인',...SH_WHO.filter(x=>!(ow==='배우자'&&x==='배우자'))]:SH_WHO.slice();
   L.forEach(x=>{if(x.who&&!o.includes(x.who))o.push(x.who);});return o;} // 이미 고른 관계는 목록에서 사라지지 않게
+function ownSync(k,s,ow0){ // 설립 명의를 바꾸면 다른 주주 줄의 대표 본인↔배우자 자리를 맞바꿈(배우자 명의인데 주주에 또 배우자가 남지 않게)
+  if(ow0===null||!cur)return;const ow=planOwner(s,stageOf(cur).plan);if(ow===ow0)return;
+  const back={'배우자':'배우자','자녀':'자녀','가족':'기타'}[ow0]||'';let ch=0;
+  s.sh=shList(s).map(x=>ow==='배우자'&&x.who==='배우자'?(ch=1,{...x,who:'대표 본인'}):!ow&&back&&x.who==='대표 본인'?(ch=1,{...x,who:back}):x);
+  if(ch)setField(k,selText(k,s));}
 function shRender(k){const box=$('#shl_'+k);if(!box||!cur)return;const s=selOf(k),L=shList(s),ae=document.activeElement,OP=shWhoOpts(k,s,L),sig=OP.join('|');
   if(box.children.length!==L.length||box.dataset.op!==sig){box.dataset.op=sig;box.innerHTML=L.map((x,i)=>`<div class="shRow"><select class="shWho" data-shk="${k}" data-shi="${i}" aria-label="주주 ${i+1} 관계"><option value="">관계 선택</option>${OP.map(o=>`<option>${o}</option>`).join('')}</select>`
     +`<div class="num"><button type="button" class="nb" data-shk="${k}" data-shi="${i}" data-shinc="-5" aria-label="지분 5% 줄이기">−</button>`
@@ -1244,11 +1249,11 @@ $('#panel').addEventListener('click',e=>{
     if(PICK[k].share&&shFitRep(s)&&inc>0)toast('다른 주주 지분이 있어서 대표 지분은 '+((s.n.pct||0))+'%까지예요.');
     if(k==='vehicle'&&Object.values(s.n||{}).some(v=>+v))s.g=[[]];
     setField(k,selText(k,s));milSync(k);}
-  else if(c){const k=c.dataset.k,i=+c.dataset.g,o=c.dataset.o,g=PICK[k].groups[i],s=selW(k);
+  else if(c){const k=c.dataset.k,i=+c.dataset.g,o=c.dataset.o,g=PICK[k].groups[i],s=selW(k),ow0=k==='convPlan'&&i===3?planOwner(s,stageOf(cur).plan):null;
     let a=(s.g[i]||[]).slice();const keep=k==='ceoAge'&&i===0&&s.old&&a.includes(o); // 예전 구간 확인: 눌린 칩을 다시 누르면 그대로 확정
     if(k==='ceoAge'&&i===0)delete s.old;
     if(!keep)a=a.includes(o)?a.filter(x=>x!==o):(g.m?[...a,o]:[o]);
-    for(let j=0;j<i;j++)if(!s.g[j])s.g[j]=[];s.g[i]=a;setField(k,selText(k,s));entitySync(k,i);stageSync(k,i);rightsSync(k,i,o);loanSync(k,i);ageSync(k,i);
+    for(let j=0;j<i;j++)if(!s.g[j])s.g[j]=[];s.g[i]=a;setField(k,selText(k,s));ownSync(k,s,ow0);entitySync(k,i);stageSync(k,i);rightsSync(k,i,o);loanSync(k,i);ageSync(k,i);
     if(k==='vehicle'&&(s.g[0]||[])[0]==='차량 없음'){s.n={};setField(k,selText(k,s));document.querySelectorAll('#panel input[data-k="vehicle"][data-role="n"]').forEach(x=>x.value='');}
     if(k==='entity'&&stageOf(cur).plan){const it=document.querySelector('#panel [data-item="convPlan"]');if(it&&it.classList.contains('shut')){setOpen(it,true);saveSettings();}}}
   else if(y){const k=y.dataset.ck;cur.checks[k]=cur.checks[k]===y.dataset.v?'':y.dataset.v;}
