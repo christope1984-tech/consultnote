@@ -617,16 +617,9 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
         <div class="card"><h3>넣을 검토 의견</h3>
           <p class="note-s" style="margin:0 0 10px">체크리스트에서 고른 내용으로 자동으로 만들어져요. 아래 보완점도 여기서 함께 넣고 빼요(상담 때 안내한 항목은 미리 넣어 둠). 누르면 넣음↔뺌. '시크릿'은 보고서에서 흐리게 가리고 '계약 후 공개'로 보여요. 보완점의 '중요'를 누르면 빨간 '중요 보완점'으로 바뀌어 앞쪽에 들어가요.</p>
           <div id="rpIss" class="rpIssList"></div></div>
-        <div class="card" id="rpWbCard" hidden><h3>여성기업 정책자금 비교</h3>
-          <p class="note-s" style="margin:0 0 10px">'안내한 내용'에 여성기업확인서를 고르면 검토 의견의 여성기업 확인서 아래에 이자 비교표가 붙어요. 금리는 신청 시점 공고에 맞춰 고쳐 주세요.</p>
-          <div class="rpWb"><label>대출 금액<span><input class="fin" id="wbAmt" inputmode="numeric" placeholder="3000"> 만원</span></label>
-          <label>일반 금리<span><input class="fin" id="wbBase" inputmode="decimal" placeholder="3.5"> %</span></label>
-          <label>여성기업 우대<span><input class="fin" id="wbCut" inputmode="decimal" placeholder="1"> %p</span></label></div></div>
         <div class="card"><h3>설명 수준</h3>
           <p class="note-s" style="margin:0 0 10px">핵심만: 검토 의견에서 설명 문단을 빼고 현황과 '저희가 할 일'만 넣어요. 기존 세무사가 있는 업체는 처음에 핵심만으로 열려요.</p>
           <div class="seg" id="rpLv"><button type="button" data-v="full">자세히</button><button type="button" data-v="brief">핵심만</button></div></div>
-        <div class="card"><h3>추가 의견 (선택)</h3>
-          <textarea id="rpMemo" rows="5" placeholder="대표님께 따로 드릴 말씀. 한 줄에 하나씩."></textarea></div>
         <p class="note-s">규칙으로 만든 사전 검토라 실제 자료를 보면 달라질 수 있어요. 보내기 전에 오른쪽 미리보기를 꼭 읽어 보세요. 사무소명·연락처는 설정 → 기본값에서 넣어요.</p>
       </div>
       <div class="rpMain"><div class="rpHead"><h3>미리보기</h3><span class="note-s" id="rpInfo" style="margin:0"></span></div><div id="rpPages"></div></div>
@@ -2533,7 +2526,7 @@ function rpData(l){
     if(I.some(x=>x.id==='nominee'||x.id==='shares'))prep.add('주주명부와 주식 변동 내역');if(I.some(x=>x.id==='certA'||x.id==='rndA'))prep.add('최근 3년 재무제표와 연구 인력 현황');}
   const hasStaff=['ins4','biz33','daily','unreg','foreign','family'].some(k=>N(k));
   const svc=[...(pre?[corp?'법인 설립 후 사업자등록과 초기 세무 세팅':'사업자등록과 개업 초기 세무 세팅']:[]),'장부 작성과 증빙 정리',corp?'부가가치세·법인세 절세, 가결산으로 법인세를 미리 계산하고 보완':'부가가치세·종합소득세 절세, 가결산으로 종합소득세를 미리 계산하고 보완',...(corp?['대표님 급여·배당·퇴직금 설계와 가지급금 관리']:[]),...(hasStaff?['직원 급여 신고(원천세·4대보험)와 고용 지원금·세액공제 점검']:[]),'신고 일정 미리 안내와 수시 세무 상담','간단한 노무 상담, 급여계산기·근로계약서 등 제공',corp?'비용 처리 등 운영 상담, 법인 설립 상담':stg.conv?'법인전환 시점·방식 설계와 비용 처리, 법인 설립 상담':'법인전환 상담과 비용 처리, 법인 설립 상담','그 외 사업 전반에 필요한 부분 상담'];
-  const wb=G('guided',0).includes('여성기업확인서')?wbCalc((l.fields.rp&&l.fields.rp.wb)||{}):null;
+  const wb=G('guided',0).includes('여성기업확인서')?wbCalc({}) /* 예시 고정값: 3,000만원·3.5%·우대 1%p */:null;
   return{d,facts,issues:I,tips,tipsAll,guided,prep:[...prep],svc,tx,wb};
 }
 
@@ -2688,8 +2681,6 @@ function rpBlocks(l){
     gap(12);}
   if(R.guided.length){head('상담 중 안내드린 내용');bullets(R.guided);gap(R.wb&&!wbDone?24:40);}
   if(R.wb&&!wbDone){wbPush();gap(12);} // 여성기업 확인서 카드가 없으면 안내 내용 아래에
-  const memo=String(st.memo||'').trim();
-  if(memo){head('추가 의견');lines(memo).forEach(t=>B.push({h(c){c.font=rpF(400,24);this.L=rpWrap(c,t,RP_CW);return this.L.length*38+12;},draw(c,y){c.font=rpF(400,24);c.fillStyle=RP_TX;rpText(c,this.L,RP_X,y+28,38);}}));gap(40);}
   head('맡겨 주시면 체계적으로 관리해 드립니다');
   if(actRows.length){const sub=t=>B.push({h:()=>58,draw(c,y){c.font=rpF(700,24);c.fillStyle=RP_MU;c.fillText(t,RP_X,y+34);}});
     sub('이번 검토에서 챙겨 드릴 일');actRows.forEach(b=>B.push(b));gap(30);sub('기본으로 함께 관리해 드리는 일');}
@@ -2748,12 +2739,10 @@ async function rpFonts(){try{await Promise.race([Promise.all([400,500,600,700].m
 async function openReport(from){
   if(!cur)return;reportFrom=from;await flush();rpState(cur);
   $('#rpTitle').textContent=(disp(cur).company||'업체명 없음')+' 검토보고서';
-  $('#rpMemo').value=cur.fields.rp.memo||'';show('report');$('#rpScroll').scrollTop=0;
+  show('report');$('#rpScroll').scrollTop=0;
   await rpFonts();rpRefresh();
 }
 function rpList(){
-  {const R0=rpData(cur),c=$('#rpWbCard');c.hidden=!R0.wb;const w=(cur.fields.rp&&cur.fields.rp.wb)||{},ae=document.activeElement;
-    [['wbAmt','amt'],['wbBase','base'],['wbCut','cut']].forEach(([id,k])=>{const el=$('#'+id);if(el!==ae)el.value=w[k]??'';});}
   {const b=!!rpState(cur).brief;document.querySelectorAll('#rpLv button').forEach(x=>x.setAttribute('aria-pressed',String((x.dataset.v==='brief')===b)));}
   const R=rpData(cur),st=rpState(cur),el=$('#rpIss');
   const sb=(id,off)=>{const v=!off&&rpIsSec(cur,id);return`<button type="button" class="rpSec" data-sid="${esc(id)}" aria-pressed="${v}"${off?' disabled':''}>시크릿</button>`;};
@@ -2783,9 +2772,6 @@ $('#rpIss').addEventListener('click',e=>{const ib=e.target.closest('[data-imp]')
   const b=e.target.closest('[data-rid]');if(!b||!cur)return;const st=rpState(cur),k=b.dataset.rid;
   if(st.ex[k])delete st.ex[k];else st.ex[k]=true;markDirty('log');rpRefresh();});
 $('#rpLv').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!cur)return;rpState(cur).brief=b.dataset.v==='brief';markDirty('log');rpRefresh();});
-['wbAmt','wbBase','wbCut'].forEach(id=>$('#'+id).addEventListener('input',e=>{if(!cur)return;const st=rpState(cur);st.wb=st.wb||{};
-  st.wb[{wbAmt:'amt',wbBase:'base',wbCut:'cut'}[id]]=e.target.value.replace(/[^0-9.]/g,'');markDirty('log');clearTimeout(rpT);rpT=setTimeout(rpRefresh,600);}));
-$('#rpMemo').addEventListener('input',e=>{if(!cur)return;rpState(cur).memo=e.target.value;markDirty('log');clearTimeout(rpT);rpT=setTimeout(rpRefresh,600);});
 $('#rpBack').addEventListener('click',async()=>{clearTimeout(rpT);await flush();
   if(reportFrom==='sheet'&&note){show('sheet');refreshSteps();}else{renderDetail();show('detail');}});
 $('#rpSave').addEventListener('click',async()=>{try{const b=await rpBlob();downloadFile(rpName(),b,'application/pdf');toast('PDF를 저장했어요.');}catch{toast('PDF를 만들지 못했어요.');}});
