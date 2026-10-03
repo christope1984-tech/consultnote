@@ -317,6 +317,9 @@ select{min-height:46px;padding:0 10px;border-radius:10px;border:1px solid var(--
 .rpSec{flex:none;min-height:48px;padding:0 12px;border-radius:10px;border:1px dashed var(--line);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
 .rpSec[aria-pressed="true"]{border-style:solid;border-color:#6B4FA0;background:#6B4FA0;color:#fff;font-weight:600}
 .rpIs.off{opacity:.5}.rpIs.off b{text-decoration:line-through}.rpIs.off .io{color:var(--muted)}
+.rpImp:disabled,.rpSec:disabled{opacity:.35;cursor:default}
+.rpSub{margin:10px 2px 0;font-size:13px;font-weight:700;color:var(--muted)}
+.rpIs .rcT{flex:none;font-size:11.5px;font-weight:700;color:var(--accent)}.rpIs.off:has(.rcT){opacity:.8}
 .rpTips{display:flex;flex-wrap:wrap;gap:6px}
 .rpTip{min-height:42px;padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:500;cursor:pointer}
 .rpTip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
@@ -612,11 +615,8 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
     <div class="scroll" id="rpScroll"><div class="wrap rpWrap">
       <div class="rpSide">
         <div class="card"><h3>넣을 검토 의견</h3>
-          <p class="note-s" style="margin:0 0 10px">체크리스트에서 고른 내용으로 자동으로 만들어져요. 누르면 넣음↔뺌. '시크릿'은 보고서에서 흐리게 가리고 '계약 후 공개'로 보여요. 보완점의 '중요'를 누르면 빨간 '중요 보완점'으로 바뀌어 앞쪽에 들어가요.</p>
+          <p class="note-s" style="margin:0 0 10px">체크리스트에서 고른 내용으로 자동으로 만들어져요. 아래 보완점도 여기서 함께 넣고 빼요(상담 때 안내한 항목은 미리 넣어 둠). 누르면 넣음↔뺌. '시크릿'은 보고서에서 흐리게 가리고 '계약 후 공개'로 보여요. 보완점의 '중요'를 누르면 빨간 '중요 보완점'으로 바뀌어 앞쪽에 들어가요.</p>
           <div id="rpIss" class="rpIssList"></div></div>
-        <div class="card"><h3>보완점 추가</h3>
-          <p class="note-s" style="margin:0 0 10px">대표님께 함께 안내할 내용을 고르세요. 고른 것만 '보완점' 카드로 들어가요.</p>
-          <div id="rpTips" class="rpTips"></div></div>
         <div class="card" id="rpWbCard" hidden><h3>여성기업 정책자금 비교</h3>
           <p class="note-s" style="margin:0 0 10px">'안내한 내용'에 여성기업확인서를 고르면 검토 의견의 여성기업 확인서 아래에 이자 비교표가 붙어요. 금리는 신청 시점 공고에 맞춰 고쳐 주세요.</p>
           <div class="rpWb"><label>대출 금액<span><input class="fin" id="wbAmt" inputmode="numeric" placeholder="3000"> 만원</span></label>
@@ -674,7 +674,7 @@ const yy=y=>String(y%100).padStart(2,'0');
    통합고용: 조특법 §29의8 중소기업, 2026 과세연도부터 (1·2·3년차, [수도권, 수도권 밖])
    노란우산: 조특법 §86의3 한도 / 창업감면(§6)은 통합고용과 함께 못 받음(§127④ 단서) */
 const TX_ITEMS=['통합고용세액공제','경조사비','노란우산공제','중소기업특별세액감면','창업중소기업 세액감면','기장세액공제'];
-const TX_TIP={'통합고용세액공제':'taxHire','경조사비':'gyeongjo','노란우산공제':'yellow','중소기업특별세액감면':'taxRelief','창업중소기업 세액감면':'taxRelief'};
+const TX_TIP={'통합고용세액공제':'taxHire','경조사비':'gyeongjo','노란우산공제':'yellow'}; // 창업·중소기업 감면 보완점은 검토 의견(창업감면)과 겹쳐 뺌
 const TX_HIRE={y:[[700,1600,1700],[1000,1900,2000]],o:[[400,900,1000],[700,1200,1300]]};
 const TX_BR=[[0,1400,0,.06],[1400,5000,84,.15],[5000,8800,624,.24],[8800,15000,1536,.35],[15000,30000,3706,.38],[30000,50000,9406,.40],[50000,100000,17406,.42],[100000,Infinity,38406,.45]];
 const txTax=b=>{b=Math.max(0,b);const r=TX_BR.find(x=>b<=x[1]);return r[2]+(b-r[0])*r[3];};
@@ -2193,9 +2193,6 @@ const RP_TIPS=[
   {id:'meal',k:'식대 비과세',t:'직원 식대 비과세',now:h=>h.staff?`직원 ${h.staff}명을 고용하고 계십니다.`:'',
     body:'직원에게 식사를 따로 제공하지 않고 식대를 급여에 포함해 주는 경우 월 20만 원까지 비과세됩니다. 급여를 정할 때 식대를 나눠 두면 같은 인건비로 직원의 세금과 4대보험 부담을 줄일 수 있습니다.',
     act:'급여 명세를 비과세 항목에 맞게 짜 드리겠습니다.'},
-  {id:'taxRelief',k:'창업·중소기업 세액감면',t:'창업중소기업·중소기업특별세액감면',now:h=>h.openY?`${h.openY}년에 개업하셨습니다.`:'',
-    body:'창업 후 5년간은 창업중소기업 세액감면을, 그 이후이거나 창업감면 대상이 아닌 경우에는 업종과 규모에 따라 중소기업 특별세액감면(소득세의 5~30%)을 받을 수 있습니다. 두 감면은 같은 해에 함께 받을 수 없고 감면 대상 업종도 정해져 있어, 해마다 어느 쪽이 유리한지 따져 골라 적용해야 합니다.',
-    act:'감면 요건을 확인해 해마다 가장 유리한 감면을 적용하고, 지난 신고에서 빠졌다면 경정청구로 돌려받을 수 있는지 검토하겠습니다.'},
   {id:'corp',k:'법인 검토',t:h=>h.corp?'법인 운영 점검':'법인 전환 검토',prep:'최근 2~3년 손익 자료',now:h=>h.corp?'법인으로 운영하고 계십니다.':'',
     body:h=>h.corp?'법인은 대표님 급여, 배당, 퇴직금을 어떻게 짜느냐에 따라 법인과 대표님 개인이 내는 전체 세금이 크게 달라집니다. 법인 자금을 정해진 절차 없이 가져가면 가지급금으로 남아 인정이자와 추가 세금 부담이 생기므로, 자금 흐름을 처음부터 관리하는 것이 중요합니다.'
       :'매출과 이익이 커지면 최고 45%까지 올라가는 종합소득세율보다 낮은 법인세율 구간을 적용받아 법인 전환이 유리해질 수 있습니다. 다만 법인 자금은 급여나 배당으로만 가져갈 수 있고 회계·4대보험 관리 부담도 늘어나므로, 이익 규모와 자금 사용 계획을 함께 따져 봐야 합니다. 현물출자나 사업양수도 방식으로 전환하면 요건에 따라 양도소득세 이월과세, 남은 감면 기간 승계 같은 혜택도 검토할 수 있습니다.',
@@ -2514,7 +2511,8 @@ function rpData(l){
   I.sort((a,b)=>RP_ORDER[a.lv]-RP_ORDER[b.lv]);
   const hh={corp,y39:ae.y39,openY:op.fut?0:op.Y,staff:['ins4','biz33','daily','unreg','foreign','family'].reduce((a,k)=>a+N(k),0),ins4:N('ins4')};
   const rpImp=((l.fields.rp||{}).imp)||{};
-  const tips=RP_TIPS.filter(x=>tipOn(x.id)&&!(x.dup||[]).some(d=>I.some(y=>y.id===d))).map(x=>{const f=v=>typeof v==='function'?v(hh):v;const id='tip_'+x.id;return{id,lv:rpImp[id]?'tipHi':'tip',t:f(x.t),now:f(x.now),body:f(x.body),act:f(x.act),prep:x.prep};}).sort((a,b)=>(b.lv==='tipHi')-(a.lv==='tipHi'));
+  const tipsAll=RP_TIPS.filter(x=>!(x.dup||[]).some(d=>I.some(y=>y.id===d))).map(x=>{const f=v=>typeof v==='function'?v(hh):v;const id='tip_'+x.id;return{id,key:x.id,k:x.k,on:tipOn(x.id),lv:rpImp[id]?'tipHi':'tip',t:f(x.t),now:f(x.now),body:f(x.body),act:f(x.act),prep:x.prep};}); // 검토 의견 목록에 모두 깔고 넣음/뺌
+  const tips=tipsAll.filter(x=>x.on).sort((a,b)=>(b.lv==='tipHi')-(a.lv==='tipHi'));
 
   /* 안내한 내용 · 준비 자료 */
   const GW={'여성기업확인서':'여성기업 확인서','각종 세액공제':'각종 세액공제 받는 방법','두루누리':'두루누리 사회보험료 지원','통합고용세액공제':'통합고용세액공제','4대보험':'4대보험 가입','근로계약서':'근로계약서 작성','사업용 카드 등록':'사업용 카드 홈택스 등록','비용처리 방법':'비용처리 방법','창업감면':'창업중소기업 세액감면'};
@@ -2536,7 +2534,7 @@ function rpData(l){
   const hasStaff=['ins4','biz33','daily','unreg','foreign','family'].some(k=>N(k));
   const svc=[...(pre?[corp?'법인 설립 후 사업자등록과 초기 세무 세팅':'사업자등록과 개업 초기 세무 세팅']:[]),'장부 작성과 증빙 정리',corp?'부가가치세·법인세 절세, 가결산으로 법인세를 미리 계산하고 보완':'부가가치세·종합소득세 절세, 가결산으로 종합소득세를 미리 계산하고 보완',...(corp?['대표님 급여·배당·퇴직금 설계와 가지급금 관리']:[]),...(hasStaff?['직원 급여 신고(원천세·4대보험)와 고용 지원금·세액공제 점검']:[]),'신고 일정 미리 안내와 수시 세무 상담','간단한 노무 상담, 급여계산기·근로계약서 등 제공',corp?'비용 처리 등 운영 상담, 법인 설립 상담':stg.conv?'법인전환 시점·방식 설계와 비용 처리, 법인 설립 상담':'법인전환 상담과 비용 처리, 법인 설립 상담','그 외 사업 전반에 필요한 부분 상담'];
   const wb=G('guided',0).includes('여성기업확인서')?wbCalc((l.fields.rp&&l.fields.rp.wb)||{}):null;
-  return{d,facts,issues:I,tips,guided,prep:[...prep],svc,tx,wb};
+  return{d,facts,issues:I,tips,tipsAll,guided,prep:[...prep],svc,tx,wb};
 }
 
 /* ----- A4 캔버스 그리기 (150dpi) ----- */
@@ -2753,17 +2751,18 @@ async function openReport(from){
   $('#rpMemo').value=cur.fields.rp.memo||'';show('report');$('#rpScroll').scrollTop=0;
   await rpFonts();rpRefresh();
 }
-function rpTipList(){const on=rpState(cur).add,fem=ageEval(((cur.fields.sel||{}).ceoAge)).sex==='여';
-  $('#rpTips').innerHTML=RP_TIPS.map(x=>`<button type="button" class="rpTip${fem&&x.id==='womenBiz'?' rec':''}" data-tip="${x.id}" aria-pressed="${on.includes(x.id)}">${esc(x.k)}</button>`).join('');}
-function rpList(){rpTipList();
+function rpList(){
   {const R0=rpData(cur),c=$('#rpWbCard');c.hidden=!R0.wb;const w=(cur.fields.rp&&cur.fields.rp.wb)||{},ae=document.activeElement;
     [['wbAmt','amt'],['wbBase','base'],['wbCut','cut']].forEach(([id,k])=>{const el=$('#'+id);if(el!==ae)el.value=w[k]??'';});}
   {const b=!!rpState(cur).brief;document.querySelectorAll('#rpLv button').forEach(x=>x.setAttribute('aria-pressed',String((x.dataset.v==='brief')===b)));}
   const R=rpData(cur),st=rpState(cur),el=$('#rpIss');
-  const sb=id=>{const v=rpIsSec(cur,id);return`<button type="button" class="rpSec" data-sid="${esc(id)}" aria-pressed="${v}">시크릿</button>`;};
-  el.innerHTML=R.issues.length||R.tips.length||R.tx?(R.tx?`<div class="rpRow"><div class="rpIs tipRow"><span class="lv tip">절세</span><b>종소세 절세 효과 (항목별 금액)</b></div>${sb('tx')}</div>`:'')+R.issues.map(x=>{const on=!st.ex[x.id],[lb]=RP_LV[x.lv];
+  const sb=(id,off)=>{const v=!off&&rpIsSec(cur,id);return`<button type="button" class="rpSec" data-sid="${esc(id)}" aria-pressed="${v}"${off?' disabled':''}>시크릿</button>`;};
+  const fem=ageEval(((cur.fields.sel||{}).ceoAge)).sex==='여';
+  el.innerHTML=R.issues.length||R.tipsAll.length||R.tx?(R.tx?`<div class="rpRow"><div class="rpIs tipRow"><span class="lv tip">절세</span><b>종소세 절세 효과 (항목별 금액)</b></div>${sb('tx')}</div>`:'')+R.issues.map(x=>{const on=!st.ex[x.id],[lb]=RP_LV[x.lv];
     return`<div class="rpRow"><button type="button" class="rpIs${on?'':' off'}" data-rid="${esc(x.id)}" aria-pressed="${on}"><span class="lv ${x.lv}">${lb}</span><b>${esc(x.t)}</b><span class="io">${on?'넣음':'뺌'}</span></button>${sb(x.id)}</div>`;}).join('')
-    +R.tips.map(x=>{const hi=x.lv==='tipHi';return`<div class="rpRow"><div class="rpIs tipRow"><span class="lv ${x.lv}">${RP_LV[x.lv][0]}</span><b>${esc(x.t)}</b></div><button type="button" class="rpImp" data-imp="${esc(x.id)}" aria-pressed="${hi}">중요</button>${sb(x.id)}</div>`;}).join('')
+    +(R.tipsAll.length?'<p class="rpSub">보완점</p>':'')
+    +R.tipsAll.map(x=>{const on=x.on,hi=on&&x.lv==='tipHi',rec=fem&&x.key==='womenBiz'&&!on;
+      return`<div class="rpRow"><button type="button" class="rpIs${on?'':' off'}" data-tip="${esc(x.key)}" aria-pressed="${on}"><span class="lv ${on?x.lv:'tip'}">${on?RP_LV[x.lv][0]:'보완점'}</span><b>${esc(x.k)}</b>${rec?'<span class="rcT">추천</span>':''}<span class="io">${on?'넣음':'뺌'}</span></button><button type="button" class="rpImp" data-imp="${esc(x.id)}" aria-pressed="${hi}"${on?'':' disabled'}>중요</button>${sb(x.id,!on)}</div>`;}).join('')
     :'<p class="note-s" style="margin:0">체크리스트에서 고른 항목으로는 만들 검토 의견이 없어요. 현황과 관리 안내만 들어가요.</p>';
 }
 function rpRefresh(){
@@ -2779,10 +2778,10 @@ $('#rpIss').addEventListener('click',e=>{const ib=e.target.closest('[data-imp]')
   if(ib&&cur){const st=rpState(cur),k=ib.dataset.imp;st.imp=st.imp||{};if(st.imp[k])delete st.imp[k];else st.imp[k]=true;markDirty('log');rpRefresh();return;}
   const sb=e.target.closest('[data-sid]');
   if(sb&&cur){const st=rpState(cur),k=sb.dataset.sid;st.sec=st.sec||{};st.sec[k]=!rpIsSec(cur,k);markDirty('log');rpRefresh();return;}
+  const tb=e.target.closest('[data-tip]'); // 보완점 넣음/뺌
+  if(tb&&cur){const st=rpState(cur),k=tb.dataset.tip;st.add=st.add.includes(k)?st.add.filter(x=>x!==k):[...st.add,k];markDirty('log');rpRefresh();return;}
   const b=e.target.closest('[data-rid]');if(!b||!cur)return;const st=rpState(cur),k=b.dataset.rid;
   if(st.ex[k])delete st.ex[k];else st.ex[k]=true;markDirty('log');rpRefresh();});
-$('#rpTips').addEventListener('click',e=>{const b=e.target.closest('[data-tip]');if(!b||!cur)return;const st=rpState(cur),k=b.dataset.tip;
-  st.add=st.add.includes(k)?st.add.filter(x=>x!==k):[...st.add,k];markDirty('log');rpRefresh();});
 $('#rpLv').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!cur)return;rpState(cur).brief=b.dataset.v==='brief';markDirty('log');rpRefresh();});
 ['wbAmt','wbBase','wbCut'].forEach(id=>$('#'+id).addEventListener('input',e=>{if(!cur)return;const st=rpState(cur);st.wb=st.wb||{};
   st.wb[{wbAmt:'amt',wbBase:'base',wbCut:'cut'}[id]]=e.target.value.replace(/[^0-9.]/g,'');markDirty('log');clearTimeout(rpT);rpT=setTimeout(rpRefresh,600);}));
