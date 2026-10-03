@@ -1341,7 +1341,8 @@ function hoText(l){
     else if(st==='ask')P.push(`창업 당시 ${b}셔서 병역 기간을 빼면 청년 창업에 해당하는지 확인이 필요합니다.`);
     else if(st==='no'&&y)P.push(ae.mil==='미필·면제'?`창업 당시 ${roJ(b)} 병역 기간을 뺄 수 없어 청년 창업에는 해당하지 않습니다.`:`창업 당시 ${roJ(b)} 병역 기간(${mt})을 빼도 청년 창업에는 해당하지 않습니다.`); }
   if(T('ceoAge'))P.push(fin(T('ceoAge')));
-  const rate=one('relief',0),fy=one('relief',1),sy=one('relief',2),rst=one('relief',3),corr=rst==='기간 정정 안내',region=T('relief');
+  const noFile=!!Y0&&Y0>=new Date().getFullYear(); // 올해 개업 → 아직 첫 신고 전
+  const rate=one('relief',0),fy=one('relief',1),sy=one('relief',2),rst0=one('relief',3),rst=noFile&&(rst0==='대표 모름'||rst0==='미적용')?'':rst0,corr=rst==='기간 정정 안내',region=T('relief');
   const ok=/^\d+%$/.test(rate); // 조특법 §6①1: 26년~ 창업은 100·75·50·25%
   if(ok)P.push(region?`대표님께서 창중소 ${rate} 감면이 가능한 지역이라고 합니다.`:`창중소 ${rate} 감면 대상이십니다.`);
   else if(rate==='미해당')P.push('창중소 감면은 해당되지 않습니다.');
@@ -1362,7 +1363,7 @@ function hoText(l){
   // 창업감면 기간
   if(rate!=='미해당'&&(fy||sy||corr)){
     const SY=sy?2000+parseInt(sy,10):0,span=y=>`${yy(y)}년부터 ${yy(y+4)}년까지 5년간`;let t='';
-    if(fy==='결손')t=(Y0?`${yy(Y0)}년도는`:'개업연도는')+' 결손 상태였어서 창중소 적용이 안 되었고 '+(SY?`${yy(SY)}년부터 시작되시면 ${yy(SY+4)}년까지 5년간 가능한 점 안내드렸습니다.`:'소득이 나는 해부터 5년간 가능한 점 안내드렸습니다.');
+    if(fy==='결손')t=(Y0?`${yy(Y0)}년도는`:'개업연도는')+(noFile?' 결손이 예상되어 창중소 적용이 어렵고 ':' 결손 상태였어서 창중소 적용이 안 되었고 ')+(SY?`${yy(SY)}년부터 시작되시면 ${yy(SY+4)}년까지 5년간 가능한 점 안내드렸습니다.`:'소득이 나는 해부터 5년간 가능한 점 안내드렸습니다.');
     else if(fy==='소득 있음'){const st=SY||Y0;t=(Y0?`${yy(Y0)}년도부터`:'개업연도부터')+' 소득이 있어 '+(st?span(st):'5년간')+' 적용되는 점 안내드렸습니다.';}
     else if(SY)t=span(SY)+' 적용 가능한 점 안내드렸습니다.';
     if(corr){const left=Y0&&SY?5-(SY-Y0):0;
@@ -2258,7 +2259,7 @@ function rpData(l){
   const d=disp(l),op=rpOpenInfo(l),cy=new Date().getFullYear(),sn=S('staff').n||{},N=x=>+sn[x]||0;
   /* 장부 의무: 복식부기 의무는 직전 연도 매출로 정해지고 개업한 해는 간편장부 대상 */
   const bk0=corp?'':one('sales',2),sb=one('sales',1),openNow=!!op.Y&&!op.fut&&op.Y===cy;
-  const dblNow=bk0==='성실신고 대상자'||bk0==='복식부기대상자',dblNext=false; // '복식부기대상자'는 지금 복식부기라서 고른 것(전환 예상으로 보지 않음)
+  const dblNow=bk0==='성실신고 대상자'||(bk0==='복식부기대상자'&&!openNow),dblNext=bk0==='복식부기대상자'&&openNow; // '복식부기대상자'는 지금 복식부기라서 고른 것. 단 개업 첫해는 법상 간편장부라 '곧 복식부기'로
   /* 사업 현황 */
   const facts=[],F=(a,b)=>{b=String(b||'').trim();if(b)facts.push([a,b]);};
   F('사업자 구분',(corp?'법인사업자':(one('entity',0)||''))+(stg.st&&stg.st!=='운영 중'?` (${stg.st})`:''));
@@ -2270,7 +2271,7 @@ function rpData(l){
   F('사업장 소재지',d.address);
   const ae=ageEval(S('ceoAge'));
   F('창업 당시 나이',ae.age?ae.bandTxt+(ae.m?` (병역 ${ae.mTxt})`:ae.mil==='병역 이행'?' (병역 이행)':''):'');
-  { const a=salesTxt(S('sales')),b=one('sales',1),c=corp?'':one('sales',2);F('매출 규모',[a?'연 '+won(a)+(b?` (${{작년:'작년 실적',올해:'올해 예상'}[b]||b})`:''):b,{'복식부기대상자':dblNext?'복식부기 전환 예상':'복식부기 대상','성실신고 대상자':'성실신고확인 대상','간편장부':'간편장부 대상'}[c]||'',T('sales')].filter(Boolean).join(' / ')); }
+  { const a=salesTxt(S('sales')),b=one('sales',1),c=corp?'':one('sales',2);F('매출 규모',[a?'연 '+won(a)+(b?` (${{작년:'작년 실적',올해:'올해 예상'}[b]||b})`:''):b,{'복식부기대상자':dblNext?'개업 첫해 간편장부 (곧 복식부기 대상)':'복식부기 대상','성실신고 대상자':'성실신고확인 대상','간편장부':'간편장부 대상'}[c]||'',T('sales')].filter(Boolean).join(' / ')); }
   const tx=corp||hid('taxSim')?null:txCalc(l);if(tx)F(tx.th?'올해 예상 종합소득세':'작년 종합소득세','약 '+txWon(tx.T0));
   F('직원',sel.staff?selText('staff',sel.staff):'');
   { const a=one('rent',0),b=one('rent',1),c=one('rent',2);F('임대 상황',[a,b?'월세 '+won(b):'',c?'임대인 '+c:'',T('rent')].filter(Boolean).join(' / ')); }
@@ -2294,7 +2295,7 @@ function rpData(l){
 
   /* 검토 의견 */
   const I=[],add=(id,lv,t,now,body,act)=>I.push({id,lv,t,now:rpEmStrip(now),body,act:rpEmStrip(act)}); // ** 강조는 본문에만
-  const rate=one('relief',0),sy=one('relief',2),rst=one('relief',3),txSt=tx&&tx.stR&&tx.stFin&&tx.items.some(i=>i[0]==='창업중소기업 세액감면')?{p:Math.round(tx.stR*100),e:tx.stFin}:null; // rst: 적용 현황(미적용·대표 모름·적용 중·기간 정정 안내)
+  const rate=one('relief',0),sy=one('relief',2),rst=(r=>op.Y&&!op.fut&&op.Y>=cy&&(r==='대표 모름'||r==='미적용')?'':r)(one('relief',3)),txSt=tx&&tx.stR&&tx.stFin&&tx.items.some(i=>i[0]==='창업중소기업 세액감면')?{p:Math.round(tx.stR*100),e:tx.stFin}:null; // rst: 적용 현황(미적용·대표 모름·적용 중·기간 정정 안내)
   const tx0=corp?'법인세':'소득세',yr0=corp?'사업연도':'과세연도';
   if(/^\d+%$/.test(rate)&&rst==='적용 중'){const SY=sy?2000+parseInt(sy,10):0; // 잘 받고 계시면 '챙기셔야 한다'는 말 없이 현황만
     add('relief','info','창업중소기업 세액감면 적용 현황',`${tx0} ${rate} 감면을 현재 잘 적용받고 계십니다.`+(SY?` 감면 기간은 ${SY}년부터 ${SY+4}년까지입니다.`:''),
@@ -2370,7 +2371,7 @@ function rpData(l){
   else if(bk==='복식부기대상자')
     add('double','mid','복식부기 장부 작성',
       dblNow?(sb==='작년'?'작년 매출 기준으로 올해 복식부기의무자에 해당합니다.':'매출 규모상 복식부기의무자로 확인되었습니다.')
-        :openNow?`올해 개업하셔서 올해는 간편장부 대상이지만, 매출이 ${s0?won(s0):'지금'} 수준이면 내년부터 복식부기의무자가 될 것으로 보입니다.`
+        :openNow?`올해 개업하셔서 올해는 간편장부 대상이지만, 연 매출이 ${s0?won(s0)+' 수준이라':'지금 규모라'} 곧 복식부기의무자가 됩니다.`
         :`올해 매출이 ${s0?won(s0)+'으로 ':''}예상되어 내년부터는 복식부기의무자가 될 것으로 보입니다. 올해 해당 여부는 작년 매출로 정해지므로 함께 확인하겠습니다.`,
       (dblNow?'':'복식부기 의무는 직전 연도 매출로 정해지고, 새로 개업한 해에는 간편장부 대상입니다. ')
         +'복식부기의무자가 복식부기 장부 없이 신고하면 **신고하지 않은 것으로 보아 가산세가 붙을 수 있습니다**. 복식부기로 장부를 쓰면 **감가상각과 결손금 이월** 같은 혜택도 제대로 받을 수 있습니다.'
@@ -2394,7 +2395,7 @@ function rpData(l){
   if(acc==='미등록'||acc==='대표 모름')
     add('acct',acc==='미등록'?'high':'mid','사업용계좌 신고',acc==='미등록'?'사업용계좌가 아직 신고되지 않은 것으로 확인되었습니다.':'사업용계좌 신고 여부를 아직 확인하지 못했습니다.',
       '복식부기의무자는 **사업용계좌를 홈택스에 신고하고** 사업 관련 입출금을 이 계좌로 해야 합니다. 신고하지 않으면 가산세가 붙고 **창업감면 같은 세액감면을 받지 못할 수 있습니다**.'
-        +(dblNow?'':dblNext?' 내년부터 복식부기의무자가 되면 바로 필요하므로 미리 준비해 두시는 것이 좋습니다.':' 지금은 간편장부 대상이라도 매출이 늘어 복식부기의무자가 되면 바로 필요합니다.'),
+        +(dblNow?'':dblNext?' 곧 복식부기의무자가 되면 바로 필요하므로 미리 준비해 두시는 것이 좋습니다.':' 지금은 간편장부 대상이라도 매출이 늘어 복식부기의무자가 되면 바로 필요합니다.'),
       '신고 여부를 확인하고, 안 되어 있으면 신고를 도와드리겠습니다.');
   const c0=one('cardReg',0);
   if(c0==='미등록')
