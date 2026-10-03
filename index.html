@@ -2674,7 +2674,7 @@ function rpBlocks(l){
       c.font=rpF(400,19);c.fillStyle=RP_MU;rpText(c,this.F,X,yy+40,30);}});};
   /* 저희가 챙겨 드릴 일 → 맨 끝 '맡겨 주시면 체계적으로 관리해 드립니다'에 합침 */
   let actRows=[];
-  { const txK=new Set(tx?tx.items.map(i=>TX_TIP[i[0]]).filter(Boolean).map(x=>'tip_'+x):[]);
+  { const txK=new Set(tx?tx.items.map(i=>TX_TIP[i[0]]).filter(Boolean).map(x=>'tip_'+x):[]);if(tx&&tx.items.some(i=>i[0]==='창업중소기업 세액감면'))['relief','reliefChk'].forEach(x=>txK.add(x)); // 절세 줄과 같은 내용은 한 번만
     const acts=[...(tx?tx.items.map(([k,a])=>({lv:'tip',lb:'절세',t:k+' 적용',r:'3년 약 '+txWon(a[0]+a[1]+a[2]),sec:txSec})):[]),...iss.filter(x=>!txK.has(x.id)&&['high','mid','tipHi'].includes(x.lv)).map(x=>({lv:x.lv,lb:RP_LV[x.lv][0],t:x.t,sec:x.sec}))];
     const restN=iss.filter(x=>!txK.has(x.id)&&!['high','mid','tipHi'].includes(x.lv)).length;
     actRows=acts.map(a=>({h:()=>54,draw(c,y){const col=a.lb==='절세'?RP_ACC:RP_LV[a.lv][1];c.font=rpF(600,18);const bw=c.measureText(a.lb).width+24;
@@ -2684,7 +2684,8 @@ function rpBlocks(l){
       else{c.font=rpF(500,24);c.fillStyle=RP_TX;c.fillText(a.t,RP_X+bw+16,y+34);}
       if(a.r){c.font=rpF(700,23);c.fillStyle=RP_UP;c.fillText(a.r,RP_X+RP_CW-c.measureText(a.r).width,y+34);}
       c.fillStyle='#E8EDF0';c.fillRect(RP_X,y+52,RP_CW,1);}}));
-    if(restN&&actRows.length)actRows.push({h:()=>54,draw(c,y){c.font=rpF(500,23);c.fillStyle=RP_MU;c.fillText(`그 밖에 위에서 말씀드린 ${restN}가지도 함께 챙겨 드립니다.`,RP_X,y+34);}});}
+    if(restN&&actRows.length){const L=actRows[actRows.length-1],d0=L.draw; // 마지막 줄에 붙여서 쪽이 바뀌어도 혼자 떨어지지 않게
+      L.h=()=>54+50;L.draw=function(c,y){d0.call(this,c,y);c.font=rpF(500,23);c.fillStyle=RP_MU;c.fillText(`그 밖에 위에서 말씀드린 ${restN}가지도 함께 챙겨 드립니다.`,RP_X,y+54+36);};}}
   let no=0;
   const head=(t,keep)=>{const k=++no;B.push({head:1,keep,h:()=>90,draw(c,y){c.font=rpF(700,32);c.fillStyle=RP_ACC;c.fillText(k+'. '+t,RP_X,y+44);c.fillStyle=RP_ACC;c.fillRect(RP_X,y+60,56,4);}});};
   const bullets=a=>a.forEach(t=>B.push({h(c){c.font=rpF(400,24);this.L=rpWrap(c,t,RP_CW-40);return this.L.length*38+16;},draw(c,y){
