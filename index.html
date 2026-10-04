@@ -642,7 +642,7 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
           <p class="note-s" style="margin:0 0 10px">오른쪽 위 'PC형·모바일형 보고서 공유'를 누를 때 보낼 파일이에요. PDF가 안 열리는 폰이면 HTML로 보내세요. HTML은 크롬·삼성 인터넷 같은 인터넷 창에서 열려요.</p>
           <div class="rpFmt" id="rpFmt" role="radiogroup" aria-label="공유 형식"><label><input type="radio" name="rpFmt" value="pdf"> PDF</label><label><input type="radio" name="rpFmt" value="html"> HTML</label></div></div>
         <div class="card"><h3>넣을 검토 의견</h3>
-          <p class="note-s" style="margin:0 0 10px">체크리스트에서 고른 내용으로 자동으로 만들어져요. 아래 보완점도 여기서 함께 넣고 빼요(상담 때 안내한 항목은 미리 넣어 둠). 누르면 넣음↔뺌. '시크릿'은 보고서에서 흐리게 가리고 '계약 후 공개'로 보여요. 보완점의 '중요'를 누르면 빨간 '중요 보완점'으로 바뀌어 앞쪽에 들어가요.</p>
+          <p class="note-s" style="margin:0 0 10px">체크리스트에서 고른 내용으로 자동으로 만들어져요. 아래 보완점도 여기서 함께 넣고 빼요(상담 때 안내한 항목은 미리 넣어 둠). 누르면 넣음↔뺌. '시크릿'은 보고서에서 흐리게 가리고 '수임 후 안내'로 보여요. 보완점의 '중요'를 누르면 빨간 '중요 보완점'으로 바뀌어 앞쪽에 들어가요.</p>
           <div id="rpIss" class="rpIssList"></div></div>
         <div class="card"><h3>설명 수준</h3>
           <p class="note-s" style="margin:0 0 10px">핵심만: 검토 의견에서 설명 문단을 빼고 현황과 '저희가 할 일'만 넣어요. 기존 세무사가 있는 업체는 처음에 핵심만으로 열려요.</p>
@@ -1288,7 +1288,7 @@ $('#panel').addEventListener('click',e=>{
   const c=e.target.closest('.chip'),y=e.target.closest('[data-ck]'),cr=e.target.closest('[data-crowd]'),nb=e.target.closest('[data-inc]'),ex=e.target.closest('[data-exk]');
   const te=e.target.closest('[data-txeok]'),sk=e.target.closest('[data-seck]');
   if(ex){const k=ex.dataset.exk;cur.fields.hoEx=cur.fields.hoEx||{};cur.fields.hoEx[k]=!isEx(cur,k);}
-  else if(sk){const k=sk.dataset.seck;cur.fields.sec=cur.fields.sec||{};cur.fields.sec[k]=!cur.fields.sec[k];toast(cur.fields.sec[k]?'보고서에서 이 항목 내용은 흐리게 가리고 \'계약 후 공개\'로 보여요.':'시크릿을 풀었어요.');}
+  else if(sk){const k=sk.dataset.seck;cur.fields.sec=cur.fields.sec||{};cur.fields.sec[k]=!cur.fields.sec[k];toast(cur.fields.sec[k]?'보고서에서 이 항목 내용은 흐리게 가리고 \'수임 후 안내\'로 보여요.':'시크릿을 풀었어요.');}
   else if(te){const s=selW('taxSim');s.n=s.n||{};if(s.n.eon){s.n.eon='';s.n.e='';}else s.n.eon='1';setField('taxSim',selText('taxSim',s));}
   else if(nb){const k=nb.dataset.k,s=selW(k);s.n=s.n||{};s.v=2;const v=parseInt(s.n[nb.dataset.n],10);
     const inc=+nb.dataset.inc,sp=(PICK[k].steps||[]).find(x=>x.n===nb.dataset.n);
@@ -2640,7 +2640,7 @@ function rpBlurS(c,x,y,w,h,draw){const S=RP_S,o=document.createElement('canvas')
   const M=c.getTransform(),px=v=>M.a*v+M.e,py=v=>M.d*v+M.f;c.save();c.setTransform(1,0,0,1,0,0);const dx=px(x-24),dy=py(y-24); // 픽셀 좌표에서 흐림(배율만큼 반경도 키움)
   if('filter' in c){c.filter=`blur(${5*S}px)`;c.drawImage(o,dx,dy);c.filter='none';c.globalAlpha=.08;c.fillStyle='#fff';c.fillRect(px(x-6),py(y-6),(w+12)*S,(h+12)*S);}
   else{c.globalAlpha=.3;c.drawImage(o,dx,dy);}c.restore();}
-function rpLock(c,cx,cy,sm){const t='계약 후 공개',fs=sm?17:23,ic=sm?13:18;c.font=rpF(700,fs);const tw=c.measureText(t).width,pw=tw+ic+(sm?30:48),ph=sm?32:50,x0=cx-pw/2;
+function rpLock(c,cx,cy,sm){const t='수임 후 안내',fs=sm?17:23,ic=sm?13:18;c.font=rpF(700,fs);const tw=c.measureText(t).width,pw=tw+ic+(sm?30:48),ph=sm?32:50,x0=cx-pw/2;
   c.save();c.shadowColor='rgba(0,0,0,.18)';c.shadowBlur=sm?6:12;c.fillStyle='#2E2A3B';rpRound(c,x0,cy-ph/2,pw,ph,ph/2);c.fill();c.restore();
   const lx=x0+(sm?12:18),ly=cy-ic*.55;c.strokeStyle='#fff';c.lineWidth=sm?2:2.6;c.beginPath();c.arc(lx+ic/2,ly+ic*.42,ic*.3,Math.PI,0);c.stroke();
   c.fillStyle='#fff';rpRound(c,lx,ly+ic*.42,ic,ic*.68,2);c.fill();c.font=rpF(700,fs);c.fillText(t,lx+ic+(sm?7:11),cy+fs*.36);}
@@ -2689,7 +2689,7 @@ function rpBlocks(l){
   const sum=auto.length?`상담 때 말씀해 주신 내용을 바탕으로 살펴본 결과, 검토가 필요한 사항이 ${auto.length}건 있습니다.`+(nh?` 이 중 ${nh}건은 세금이나 가산세에 바로 영향을 줄 수 있어 우선 확인이 필요합니다.`:nm?` 이 중 ${nm}건은 미리 정리해 두시면 세금을 줄이는 데 도움이 됩니다.`:'')+tipS
     :nt?`상담 때 말씀해 주신 내용을 바탕으로 사업에 도움이 될 보완점 ${nt}가지를 정리했습니다.`+hiS:'상담 때 말씀해 주신 내용을 정리했습니다. 실제 자료를 확인하면 더 구체적인 검토 의견을 드릴 수 있습니다.';
   const tx=R.tx,txSum=tx&&tx.tot>=1?(tx.th?` 특히 올해부터 절세 항목을 챙기면 3년간 약 ${txWon(tx.tot)}의 세금을 줄일 수 있습니다.`:` 특히 놓치고 계신 절세 항목을 챙기면 3년간 약 ${txWon(tx.tot)}의 세금을 줄일 수 있습니다.`):'';
-  const secN=iss.filter(x=>x.sec).length+(txSec&&tx?1:0),secS=secN?' 일부 맞춤 방안은 계약 후 자세히 공개해 드립니다.':'';
+  const secN=iss.filter(x=>x.sec).length+(txSec&&tx?1:0),secS=secN?' 일부 맞춤 방안은 수임 후 자세히 안내해 드립니다.':'';
   const sp=RP_MOB?24:32;
   B.push({h(c){c.font=rpF(500,25);this.L=rpWrap(c,sum+txSum+secS,RP_CW-sp*2);return this.L.length*40+56+28;},draw(c,y){
     const h=this.L.length*40+56;c.fillStyle='#E4F0EB';rpRound(c,RP_X,y,RP_CW,h,14);c.fill();c.fillStyle=RP_ACC;c.fillRect(RP_X,y+14,6,h-28);
