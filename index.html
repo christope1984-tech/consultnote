@@ -611,8 +611,9 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
     <header class="bar">
       <button class="tool" id="rpBack" aria-label="뒤로"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
       <h1 id="rpTitle">검토보고서</h1>
-      <button class="btn" id="rpSave" title="A4 PDF 내려받기 (PC·보관·출력용)">PDF</button>
-      <button class="btn primary" id="rpShare" title="휴대폰 화면에 맞춘 PDF를 공유창으로 보내기">카톡용</button>
+      <button class="btn" id="rpSave" title="A4 PDF 내려받기 (PC·보관·출력용)">PDF 저장</button>
+      <button class="btn" id="rpShareA4" title="A4 PDF를 공유창으로 보내기">PC형 보고서 공유</button>
+      <button class="btn primary" id="rpShare" title="휴대폰에서 끊김 없이 이어 보는 한 장짜리 PDF를 공유창으로 보내기">모바일형 보고서 공유</button>
     </header>
     <div class="scroll" id="rpScroll"><div class="wrap rpWrap">
       <div class="rpSide">
@@ -2595,8 +2596,8 @@ function rpBlur(c,x,y,w,h,draw){if(RP_S!==1)return rpBlurS(c,x,y,w,h,draw);const
   c.save();if('filter' in c){c.filter='blur(5px)';c.drawImage(o,x-24,y-24);c.filter='none';c.globalAlpha=.08;c.fillStyle='#fff';c.fillRect(x-6,y-6,w+12,h+12);}
   else{c.globalAlpha=.3;c.drawImage(o,x-24,y-24);}c.restore();}
 function rpBlurS(c,x,y,w,h,draw){const S=RP_S,o=document.createElement('canvas');o.width=Math.ceil((w+48)*S);o.height=Math.ceil((h+48)*S);const g=o.getContext('2d');g.scale(S,S);g.translate(24,24);draw(g);
-  c.save();c.setTransform(1,0,0,1,0,0);const dx=(x-24)*S,dy=(y-24)*S; // 픽셀 좌표에서 흐림(배율만큼 반경도 키움)
-  if('filter' in c){c.filter=`blur(${5*S}px)`;c.drawImage(o,dx,dy);c.filter='none';c.globalAlpha=.08;c.fillStyle='#fff';c.fillRect((x-6)*S,(y-6)*S,(w+12)*S,(h+12)*S);}
+  const M=c.getTransform(),px=v=>M.a*v+M.e,py=v=>M.d*v+M.f;c.save();c.setTransform(1,0,0,1,0,0);const dx=px(x-24),dy=py(y-24); // 픽셀 좌표에서 흐림(배율만큼 반경도 키움)
+  if('filter' in c){c.filter=`blur(${5*S}px)`;c.drawImage(o,dx,dy);c.filter='none';c.globalAlpha=.08;c.fillStyle='#fff';c.fillRect(px(x-6),py(y-6),(w+12)*S,(h+12)*S);}
   else{c.globalAlpha=.3;c.drawImage(o,dx,dy);}c.restore();}
 function rpLock(c,cx,cy,sm){const t='계약 후 공개',fs=sm?17:23,ic=sm?13:18;c.font=rpF(700,fs);const tw=c.measureText(t).width,pw=tw+ic+(sm?30:48),ph=sm?32:50,x0=cx-pw/2;
   c.save();c.shadowColor='rgba(0,0,0,.18)';c.shadowBlur=sm?6:12;c.fillStyle='#2E2A3B';rpRound(c,x0,cy-ph/2,pw,ph,ph/2);c.fill();c.restore();
@@ -2900,6 +2901,34 @@ function rpSplit(b,h,y,c0,page,getC){ // 나눌 수 있는 블록을 쪽 끝에�
     if(y>RP_TOP){page();c=getC();y=RP_TOP;continue;}
     clipDraw(off,h,y-off);return y+rest;} // 한 쪽보다 길고 나눌 자리도 없으면 그대로(넘침)
   return y;}
+/* ----- 모바일형: 쪽 나눔 없이 한 장으로 길게(웹툰처럼). 그림은 띠(1080×2160)로 나눠 그리고 PDF 한 쪽에 위아래로 붙임 ----- */
+function rpPaintLong(l){rpMode('mob');try{
+  const{B}=rpBlocks(l),m=document.createElement('canvas').getContext('2d'),L=[];let y=RP_TOP;
+  B.forEach(b=>{const h=b.h(m);if(b.pg){y+=40;return;}if(b.gap){if(y>RP_TOP)y+=h;return;}L.push([b,y]);y+=h;});
+  const S=RP_S,W=Math.round(RP_W*S),H=Math.ceil((y+28)*S),SP=2160,n=Math.ceil(H/SP);
+  const draw=k=>{rpMode('mob');try{const top=k*SP,hp=Math.min(SP,H-top),cv=document.createElement('canvas');cv.width=W;cv.height=hp;const c=cv.getContext('2d');
+    c.fillStyle='#fff';c.fillRect(0,0,W,hp);c.setTransform(S,0,0,S,0,-top);const t0=top/S,t1=(top+hp)/S;
+    L.forEach(([b,by])=>{const bh=b.h(c);if(by<t1&&by+bh>t0)b.draw(c,by);});return cv;}finally{rpMode('a4');}};
+  return{W,H,n,SP,draw};}finally{rpMode('a4');}}
+async function rpPdfLong(P,title){ // 띠 그림들을 PDF 한 쪽에 위에서부터 차례로 놓음
+  const enc=new TextEncoder(),parts=[],offs=[];let len=0;const put=x=>{const b=typeof x==='string'?enc.encode(x):x;parts.push(b);len+=b.length;};
+  const jpg=cv=>new Promise((res,rej)=>cv.toBlob(b=>b?b.arrayBuffer().then(a=>res(new Uint8Array(a)),rej):rej(new Error('jpeg')),'image/jpeg',0.86));
+  const s=Math.min(1/3,14000/P.H),PW=+(P.W*s).toFixed(2),PH=+(P.H*s).toFixed(2),f=v=>+v.toFixed(3); // 쪽 높이는 PDF 한도(14400pt) 안으로
+  const obj=(id,t)=>{offs[id]=len;put(`${id} 0 obj\n${t}\nendobj\n`);};
+  const u16=t=>{let h='FEFF';for(const ch of t){const cp=ch.codePointAt(0);if(cp>0xFFFF){const v=cp-0x10000;h+=(0xD800+(v>>10)).toString(16).padStart(4,'0')+(0xDC00+(v&0x3FF)).toString(16).padStart(4,'0');}else h+=cp.toString(16).padStart(4,'0');}return'<'+h.toUpperCase()+'>';};
+  put('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
+  const n=P.n,img0=5,info=img0+n;let cs='',xo='';
+  for(let k=0;k<n;k++){const hp=Math.min(P.SP,P.H-k*P.SP),y0=P.H-k*P.SP-hp; // PDF는 아래가 0
+    cs+=`q ${PW} 0 0 ${f(hp*s)} 0 ${f(y0*s)} cm /Im${k} Do Q\n`;xo+=`/Im${k} ${img0+k} 0 R `;}
+  obj(1,'<< /Type /Catalog /Pages 2 0 R >>');obj(2,'<< /Type /Pages /Count 1 /Kids [3 0 R] >>');
+  obj(3,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << ${xo}>> >> /Contents 4 0 R >>`);
+  obj(4,`<< /Length ${enc.encode(cs).length} >>\nstream\n${cs}endstream`);
+  for(let k=0;k<n;k++){const cv=P.draw(k),img=await jpg(cv);cv.width=cv.height=0; // 띠 하나씩 그리고 바로 버려 메모리 아낌
+    offs[img0+k]=len;put(`${img0+k} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${P.W} /Height ${Math.min(P.SP,P.H-k*P.SP)} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.length} >>\nstream\n`);put(img);put('\nendstream\nendobj\n');}
+  obj(info,`<< /Title ${u16(title)} /Producer (sangdam) >>`);
+  const xref=len;let x=`xref\n0 ${info+1}\n0000000000 65535 f \n`;for(let i=1;i<=info;i++)x+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+  put(x+`trailer\n<< /Size ${info+1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts,{type:'application/pdf'});}
 function rpPaintM(l){rpMode('mob');try{return rpPaint(l);}finally{rpMode('a4');}}
 function rpPaint(l){
   const{B,iss,office}=rpBlocks(l),pages=[];let c,y;
@@ -2944,7 +2973,7 @@ async function rpPdf(pages,title,pt){const[PW,PH]=pt||[595.28,841.89]; // pt: �
   put(x+`trailer\n<< /Size ${total+1} /Root 1 0 R /Info ${total} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(parts,{type:'application/pdf'});
 }
-function rpName(mob){const d=disp(cur);return `${(d.company||'업체').replace(/[\\/:*?"<>|\s]+/g,'_')}_사전검토보고서_${(d.visitDate||today()).replace(/-/g,'')}${mob?'_휴대폰용':''}.pdf`;}
+function rpName(mob){const d=disp(cur);return `${(d.company||'업체').replace(/[\\/:*?"<>|\s]+/g,'_')}_사전검토보고서_${(d.visitDate||today()).replace(/-/g,'')}${mob?'_모바일형':''}.pdf`;}
 async function rpFonts(){try{await Promise.race([Promise.all([400,500,600,700].map(w=>document.fonts.load(rpF(w,24),'가'))),new Promise(r=>setTimeout(r,1500))]);}catch{}}
 /* ----- 화면 ----- */
 async function openReport(from){
@@ -2969,15 +2998,15 @@ function rpRefresh(){
   rpList();const seq=++rpSeq;rpCache=null;
   const{pages}=rpPaint(cur),box=$('#rpPages');box.textContent='';
   pages.forEach(cv=>{cv.className='rpPage';box.appendChild(cv);});
-  $('#rpInfo').textContent=`A4 ${pages.length}쪽`;
+  $('#rpInfo').textContent=`PC형 ${pages.length}쪽`;
   const title=(disp(cur).company||'')+' 사전 검토보고서';
   rpCache={seq,p:rpPdf(pages,title)};rpCache.p.catch(()=>{});
   rpCacheM=null;clearTimeout(rpTM);rpTM=setTimeout(()=>{if(seq===rpSeq&&cur&&!$('#view-report').hidden)rpBuildM();},400); // 카톡용은 버튼 누르기 전에 미리
 }
 async function rpBlob(){if(!rpCache)rpRefresh();return rpCache.p;}
-function rpBuildM(){const seq=rpSeq,{pages}=rpPaintM(cur),a4=$('#rpInfo').textContent.split(' · ')[0];
-  rpCacheM={seq,p:rpPdf(pages,(disp(cur).company||'')+' 사전 검토보고서',RP_MOB_PT)};rpCacheM.p.catch(()=>{});
-  $('#rpInfo').textContent=`${a4} · 카톡용 ${pages.length}쪽`;return rpCacheM;}
+function rpBuildM(){const seq=rpSeq,P=rpPaintLong(cur),a4=$('#rpInfo').textContent.split(' · ')[0];
+  rpCacheM={seq,p:rpPdfLong(P,(disp(cur).company||'')+' 사전 검토보고서')};rpCacheM.p.catch(()=>{});
+  $('#rpInfo').textContent=`${a4} · 모바일형 한 장(화면 약 ${Math.round(P.H/1920)}개 길이)`;return rpCacheM;}
 async function rpBlobM(){if(!rpCacheM||rpCacheM.seq!==rpSeq){if(!rpCache)rpRefresh();clearTimeout(rpTM);rpBuildM();}return rpCacheM.p;}
 $('#rpIss').addEventListener('click',e=>{const ib=e.target.closest('[data-imp]');
   if(ib&&cur){const st=rpState(cur),k=ib.dataset.imp;st.imp=st.imp||{};if(st.imp[k])delete st.imp[k];else st.imp[k]=true;markDirty('log');rpRefresh();return;}
@@ -2991,13 +3020,15 @@ $('#rpLv').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
 $('#rpBack').addEventListener('click',async()=>{clearTimeout(rpT);clearTimeout(rpTM);await flush();
   if(reportFrom==='sheet'&&note){show('sheet');refreshSteps();}else{renderDetail();show('detail');}});
 $('#rpSave').addEventListener('click',async()=>{try{const b=await rpBlob();downloadFile(rpName(),b,'application/pdf');toast('PDF를 저장했어요.');}catch{toast('PDF를 만들지 못했어요.');}});
-$('#rpShare').addEventListener('click',async()=>{
-  let f;try{f=new File([await rpBlobM()],rpName(1),{type:'application/pdf'});}catch{toast('PDF를 만들지 못했어요.');return;}
+async function rpSend(mob){ // 공유창으로 보내기: mob=1 카톡용(휴대폰), 0 A4
+  let f;try{f=new File([await(mob?rpBlobM():rpBlob())],rpName(mob),{type:'application/pdf'});}catch{toast('PDF를 만들지 못했어요.');return;}
   if(navigator.canShare&&navigator.canShare({files:[f]})){
     try{await navigator.share({files:[f],title:f.name});}
     catch(e){if(e&&e.name==='AbortError')return;toast('공유 창을 열지 못했어요. PDF 저장 후 카카오톡에서 파일로 보내 주세요.');}
   }else{downloadFile(f.name,f,'application/pdf');toast('이 화면에서는 바로 공유가 안 돼서 PDF를 내려받았어요. 카카오톡에서 파일로 보내 주세요.');}
-});
+}
+$('#rpShare').addEventListener('click',()=>rpSend(1));
+$('#rpShareA4').addEventListener('click',()=>rpSend(0));
 $('#dRep').addEventListener('click',()=>openReport('detail'));
 
 /* ---------- 목록 ---------- */
