@@ -2848,7 +2848,8 @@ function rpBlocks(l){
 /* ----- 휴대폰용(카톡용) 배치: 폭 600 논리 좌표. 문구는 A4와 같고 자리만 바꿈 ----- */
 function rpCoverM({d,iss,tx,office,writer,tel}){ // 1쪽: 표지 겸 핵심 요약
   const top=iss.filter(x=>['high','tipHi','mid'].includes(x.lv)).slice(0,3); // iss 순서대로: 우선 확인 → 시크릿 항목 → 중요 보완점 → 검토 필요
-  return{h:()=>RP_BOT-RP_TOP,draw(c,y){const X=RP_X,W=RP_CW;
+  return{h(){if(this.hh==null){const g=document.createElement('canvas').getContext('2d'); // 실제 내용 높이만큼만(아래 빈 공간 없앰): 빈 판에 한 번 그려 재 봄
+      this.hh=Math.min(RP_BOT-RP_TOP,this.draw(g,RP_TOP)-RP_TOP+24);}return this.hh;},draw(c,y){const X=RP_X,W=RP_CW;
     c.fillStyle=RP_ACC;c.fillRect(0,0,RP_W,10);
     let yy=y;c.font=rpF(600,20);c.fillStyle=RP_ACC;const k1=rpWrapBal(c,'사전 검토보고서'+(office?'  ·  '+office:''),W);rpText(c,k1,X,yy+20,30);yy+=(k1.length-1)*30+20;
     const t1='세무·노무 사전 검토 의견',f1=rpFitF(c,t1,W,44,32,700);c.fillStyle=RP_TX;c.fillText(t1,X,yy+24+f1);yy+=24+f1;
@@ -2872,7 +2873,7 @@ function rpCoverM({d,iss,tx,office,writer,tel}){ // 1쪽: 표지 겸 핵심 요�
           rpBlur(c,tx0,ty,tw,o.T.length*36,g=>{g.font=rpF(600,25);g.fillStyle=RP_TX;rpText(g,o.T,0,25,36);});rpLock(c,tx0+Math.max(tw,140)/2,ty+o.T.length*18,1);}
         else{c.font=rpF(600,25);c.fillStyle=RP_TX;rpText(c,o.T,tx0,ty+25,36);}
         yy+=o.h;if(i<n-1){c.fillStyle='#E8EDF0';c.fillRect(X,yy,W,1);}});}
-}};}
+    return yy;}};}
 function rpTaxM(B,tx,txSec,foot){ // 한눈에 보는 절세 효과: ① 3년 금액·계산식 ② 해마다 가로 막대 + 항목표 + 근거
   const rows=tx.items,y1=tx.Y[0],X=RP_X+24,W=RP_CW-48,box=(c,y,h)=>{c.fillStyle='#FFFFFF';c.strokeStyle=RP_ACC;c.lineWidth=3;rpRound(c,RP_X,y,RP_CW,h,16);c.fill();c.stroke();};
   const segA=[[tx.th?'올해 예상  ':'1년차 기준  ',500,24,RP_MU],[txWon(tx.T0),500,26,RP_TX],['  −  ',500,26,RP_MU],[txWon(y1.save),700,26,pnCol(y1.save)]],segB=[['  =  ',500,26,RP_MU]],ft=txWon(y1.fin);
