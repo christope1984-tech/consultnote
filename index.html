@@ -135,6 +135,28 @@ button,input,textarea,select{font:inherit;color:inherit}
 .panel h2{display:flex;align-items:center;gap:8px}
 .foldAll{margin-left:auto;display:flex;gap:6px}
 .foldAll button{height:30px;padding:0 12px;border:1px solid var(--line);border-radius:15px;background:var(--card);color:var(--text);font-size:13px;font-weight:500;cursor:pointer}
+/* 상담 녹음: 업체 정보 줄 오른쪽(모두 펼치기 왼쪽) */
+.recBox{margin-left:auto;display:flex;align-items:center;gap:6px}
+.recBox+.foldAll{margin-left:0;padding-left:6px;border-left:1px solid var(--line)}
+.recBtn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid var(--neg);border-radius:15px;background:var(--card);color:var(--neg);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.recBtn::before{content:'';flex:none;width:9px;height:9px;border-radius:50%;background:currentColor}
+.recBtn.on{background:var(--neg);color:var(--neg-ink)}
+.recBtn.on::before{border-radius:2px}
+.recBtn:disabled{opacity:.55;cursor:default}
+.recTime{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 4px;border:0;background:none;color:var(--neg);font:inherit;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.recTime[hidden]{display:none}
+.recTime.live::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--neg);animation:recBlink 1.2s steps(2,jump-none) infinite}
+.recTime.play{padding:0 10px;border:1px solid var(--line);border-radius:15px;background:var(--card);color:var(--text);font-size:13px;cursor:pointer}
+@keyframes recBlink{50%{opacity:.15}}
+@media (prefers-reduced-motion:reduce){.recTime.live::before{animation:none}}
+.rpkItem{padding:12px 4px 14px;border-bottom:1px solid var(--line2)}
+.rpkHead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rpkHead b{font-size:15px;font-variant-numeric:tabular-nums}
+.rpkHead span{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rpkHead small{font-size:12.5px;color:var(--neg)}
+.rpkHead .btn{min-height:36px;padding:0 12px;font-size:14px}
+.rpkHead .btn:first-of-type{margin-left:auto}
+.rpkItem audio{display:block;width:100%}
 @media (prefers-reduced-motion:reduce){.itog svg{transition:none}}
 .grp{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:start;padding:3px 0}
 .gl{padding-top:10px;font-size:13.5px;line-height:1.3;color:var(--muted)}
@@ -639,6 +661,11 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
   <div class="cpHead"><h3 id="cpTitle">일정 찾기</h3><button class="btn" id="cpRefresh">새로고침</button><button class="btn" id="cpClose">닫기</button></div>
   <p class="cpInfo" id="cpInfo"></p><div class="cpList" id="cpList"></div>
 </div></div>
+<div class="calPick" id="recPick" hidden role="dialog" aria-modal="true" aria-labelledby="rpkTitle"><div class="cpBox">
+  <div class="cpHead"><h3 id="rpkTitle">상담 녹음</h3><button class="btn" id="rpkClose">닫기</button></div>
+  <p class="cpInfo">이 태블릿에만 저장돼요. 백업 파일에는 들어가지 않으니 남길 녹음은 '저장'으로 따로 받아 두세요.</p>
+  <div class="cpList" id="rpkList"></div>
+</div></div>
 <div class="veil" id="veil" hidden><div class="box"><div class="spin"></div><p id="veilText"></p><small id="veilSub"></small><button class="btn" id="veilStop" hidden>중지</button></div></div>
 <div id="toast" hidden role="status"></div>
 <textarea id="copyBuf" class="vh" aria-hidden="true" tabindex="-1"></textarea>
@@ -799,8 +826,9 @@ function saveSettings(){try{localStorage.setItem(SET_KEY,JSON.stringify(settings
 function toDoc(log){const o={};for(const k in log){if(k[0]!=='_')o[k]=log[k];}return clone(o);}
 const IDB={
   db:null,
-  open(){return new Promise((res,rej)=>{const r=indexedDB.open('sangdam',1);
-    r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('logs'))d.createObjectStore('logs',{keyPath:'id'});if(!d.objectStoreNames.contains('ink'))d.createObjectStore('ink');};
+  open(){return new Promise((res,rej)=>{const r=indexedDB.open('sangdam',2);
+    r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('logs'))d.createObjectStore('logs',{keyPath:'id'});if(!d.objectStoreNames.contains('ink'))d.createObjectStore('ink');
+    if(!d.objectStoreNames.contains('audio'))d.createObjectStore('audio',{keyPath:'id'});if(!d.objectStoreNames.contains('audioPart'))d.createObjectStore('audioPart');};
     r.onsuccess=()=>{this.db=r.result;res();};r.onerror=()=>rej(r.error);});},
   run(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);let q;try{q=fn(t.objectStore(store));}catch(e){rej(e);return;}
     t.oncomplete=()=>res(q?q.result:undefined);t.onerror=t.onabort=()=>rej(t.error);});}
@@ -818,13 +846,24 @@ const Store={
   async loadInk(id){return(await IDB.run('ink','readonly',s=>s.get(id)))||'';},
   setTrash(ids,on){return this.q(async()=>{const t=Date.now(); // 휴지통: 지우지 않고 trashedAt만 표시
     for(const id of ids){const d=this.all.get(id);if(!d)continue;const n={...d};if(on)n.trashedAt=t;else delete n.trashedAt;await IDB.run('logs','readwrite',s=>s.put(n));this.all.set(id,n);}this.emit();});},
-  removeMany(ids){return this.q(async()=>{for(const id of ids){await IDB.run('logs','readwrite',s=>s.delete(id));await IDB.run('ink','readwrite',s=>s.delete(id));this.all.delete(id);}this.emit();});},
+  removeMany(ids){return this.q(async()=>{for(const id of ids){await IDB.run('logs','readwrite',s=>s.delete(id));await IDB.run('ink','readwrite',s=>s.delete(id));this.all.delete(id);}await Aud.delLogs(ids).catch(()=>{});this.emit();});},
   purgeOld(){const lim=Date.now()-TRASH_DAYS*864e5,old=[...this.all.values()].filter(l=>l.trashedAt&&l.trashedAt<lim).map(l=>l.id);
     return old.length?this.removeMany(old).then(()=>old.length):Promise.resolve(0);},
-  remove(id){return this.q(async()=>{await IDB.run('logs','readwrite',s=>s.delete(id));await IDB.run('ink','readwrite',s=>s.delete(id));this.all.delete(id);this.emit();});},
+  remove(id){return this.q(async()=>{await IDB.run('logs','readwrite',s=>s.delete(id));await IDB.run('ink','readwrite',s=>s.delete(id));this.all.delete(id);await Aud.delLogs([id]).catch(()=>{});this.emit();});},
   async dump(){const ink={};const keys=await IDB.run('ink','readonly',s=>s.getAllKeys());for(const k of keys||[])ink[k]=await this.loadInk(k);return{app:'sangdam',version:2,exportedAt:new Date().toISOString(),logs:[...this.all.values()],ink};},
   restore(data){return this.q(async()=>{let n=0;for(const l of data.logs||[]){if(!l||!l.id)continue;await IDB.run('logs','readwrite',s=>s.put(l));this.all.set(l.id,l);n++;}
     for(const[k,v]of Object.entries(data.ink||{}))await IDB.run('ink','readwrite',s=>s.put(String(v),k));this.emit();return n;});}
+};
+/* 상담 녹음 저장: audio = 녹음 정보 {id,logId,at,dur,mime,company,done}, audioPart = 15초 단위 조각(꺼져도 거기까지는 남음) */
+const audKey=(id,seq)=>id+'#'+String(seq).padStart(6,'0');
+const audRange=id=>IDBKeyRange.bound(id+'#',id+'#\uffff');
+const Aud={
+  meta(m){return IDB.run('audio','readwrite',s=>s.put(m));},
+  part(id,seq,blob){return IDB.run('audioPart','readwrite',s=>s.put(blob,audKey(id,seq)));},
+  async list(logId){const a=await IDB.run('audio','readonly',s=>s.getAll());return(a||[]).filter(m=>!logId||m.logId===logId).sort((x,y)=>x.at-y.at);},
+  async blob(m){const parts=await IDB.run('audioPart','readonly',s=>s.getAll(audRange(m.id)));return new Blob(parts||[],{type:String(m.mime||'audio/webm').split(';')[0]});},
+  async del(id){await IDB.run('audioPart','readwrite',s=>s.delete(audRange(id)));await IDB.run('audio','readwrite',s=>s.delete(id));},
+  async delLogs(ids){const set=new Set(ids);for(const m of await this.list())if(set.has(m.logId))await this.del(m.id);}
 };
 
 /* ---------- Claude API (태블릿에서 직접 호출) ---------- */
@@ -1069,7 +1108,7 @@ function pickHTML(k){
 }
 function buildPanel(){
   $('#panel').innerHTML=`
-  <section id="secInfo"><h2>업체 정보</h2>
+  <section id="secInfo"><h2>업체 정보<span class="recBox"><button type="button" class="recTime" id="recTime" hidden></button><button type="button" class="recBtn" id="recBtn">상담 시작</button></span></h2>
     ${itemHTML('openDate',NAME.openDate)}
     <div class="item entityItem" data-item="entity"><div class="ihead"><h3>사업자 구분</h3></div>${pickHTML('entity')}</div>
     <div class="item only-conv" data-item="convPlan"><div class="ihead"><h3>법인전환 계획</h3>${incHTML('convPlan')}</div>${pickHTML('convPlan')}${shHTML('convPlan')}</div>
@@ -1952,7 +1991,7 @@ async function openSheet(id){
   }else{cur=newLog();note=emptyNote();show('sheet');}
   dirty={log:false,ink:false};setStatus('');
   const wk=$('#work');wk.classList.add('instant');setCollapsed(false);setHo(false);setFull(false);setBig(false);clearTimeout(layoutT);layoutBusy=false;void wk.offsetHeight;requestAnimationFrame(()=>wk.classList.remove('instant'));$('#panel').scrollTop=0;focusStep='info';$('#hoAI').hidden=!settings.apiKey;
-  syncPanel();fit();sc.scrollTop=0;redraw();updateUndo();refreshSteps();
+  syncPanel();fit();sc.scrollTop=0;redraw();updateUndo();refreshSteps();recPaint();
 }
 function openDetail(id){
   const l=logs.get(id)||(cur&&cur.id===id?cur:null);if(!l){show('list');return;}
@@ -3431,6 +3470,130 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flush();});
 
+/* ---------- 상담 녹음 ----------
+   상담 시작 → 마이크 녹음 + 시:분:초 표시, 버튼은 '상담 종료'로 바뀜
+   상담 종료를 누르거나, 화면이 꺼진(앱이 가려진) 채 5분이 지나면 녹음 종료 */
+const REC_SLICE=1000,REC_SAVE=15000,REC_OFF_LIMIT=5*60*1000;
+const Rec={on:false,busy:false,mr:null,stream:null,meta:null,buf:[],seq:0,start:0,tick:0,saveT:0,offT:0,hiddenAt:0,lock:null,chain:Promise.resolve(),why:''};
+const hms=ms=>{const t=Math.max(0,Math.floor(ms/1000));return[Math.floor(t/3600),Math.floor(t/60)%60,t%60].map(n=>String(n).padStart(2,'0')).join(':');};
+const hmsKo=ms=>{const t=Math.max(0,Math.round(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t/60)%60,x=t%60;return(h?h+'시간 ':'')+(h||m?m+'분 ':'')+x+'초';};
+function recMime(){if(!window.MediaRecorder)return'';for(const t of['audio/webm;codecs=opus','audio/webm','audio/mp4'])if(MediaRecorder.isTypeSupported(t))return t;return'';}
+async function recWake(){try{if(Rec.on&&!Rec.lock&&!document.hidden&&'wakeLock'in navigator){Rec.lock=await navigator.wakeLock.request('screen');Rec.lock.addEventListener('release',()=>{Rec.lock=null;});}}catch{}}
+function recUnwake(){try{if(Rec.lock)Rec.lock.release();}catch{}Rec.lock=null;}
+function recSave(final){const m=Rec.meta;if(!m)return Rec.chain;
+  const b=Rec.buf.length?new Blob(Rec.buf,{type:m.mime}):null;Rec.buf=[];const seq=b?Rec.seq++:-1;
+  m.dur=(final?Rec.endAt:Date.now())-Rec.start;if(final)m.done=true;const snap={...m};
+  return Rec.chain=Rec.chain.then(async()=>{if(b)await Aud.part(snap.id,seq,b);await Aud.meta(snap);}).catch(()=>{Rec.saveFail=true;});}
+async function recStart(){
+  if(Rec.on||Rec.busy)return;
+  if(!cur){toast('일지를 먼저 열어 주세요.');return;}
+  const mime=recMime();
+  if(!mime||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('이 브라우저에서는 녹음을 할 수 없어요.');return;}
+  Rec.busy=true;recPaint();
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch(e){Rec.busy=false;recPaint();
+    toast(e&&e.name==='NotAllowedError'?'마이크 권한이 꺼져 있어요. 크롬 사이트 설정에서 이 앱의 마이크를 허용해 주세요.':'마이크를 열지 못했어요.');return;}
+  const meta={id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),logId:cur.id,at:Date.now(),dur:0,mime,company:String(getField('company')||'').trim(),done:false};
+  try{await Aud.meta(meta);}catch{stream.getTracks().forEach(t=>t.stop());Rec.busy=false;recPaint();toast('녹음을 저장할 공간을 열지 못했어요.');return;}
+  let mr;
+  try{mr=new MediaRecorder(stream,{mimeType:mime,audioBitsPerSecond:32000});}
+  catch{try{mr=new MediaRecorder(stream);}catch{stream.getTracks().forEach(t=>t.stop());Aud.del(meta.id).catch(()=>{});Rec.busy=false;recPaint();toast('녹음을 시작하지 못했어요.');return;}}
+  Object.assign(Rec,{stream,mr,meta,buf:[],seq:0,start:meta.at,hiddenAt:0,why:'',saveFail:false});
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)Rec.buf.push(e.data);};
+  mr.onstop=recFinish;
+  mr.onerror=()=>{if(Rec.on)recStop('err');};
+  stream.getAudioTracks().forEach(t=>t.addEventListener('ended',()=>{if(Rec.on)recStop('mic');}));
+  mr.start(REC_SLICE);
+  Rec.on=true;Rec.busy=false;
+  Rec.tick=setInterval(recPaintTime,500);Rec.saveT=setInterval(()=>recSave(false),REC_SAVE);
+  markDirty('log'); // 새 일지면 녹음과 함께 일지도 저장되게
+  recWake();recPaint();
+}
+function recStop(why){
+  if(!Rec.on)return;
+  Rec.on=false;Rec.busy=true;Rec.why=why||'';Rec.endAt=Date.now();
+  clearInterval(Rec.tick);clearInterval(Rec.saveT);clearTimeout(Rec.offT);recUnwake();
+  try{if(Rec.mr&&Rec.mr.state!=='inactive')Rec.mr.stop();else recFinish();}catch{recFinish();}
+  recPaint();
+}
+async function recFinish(){
+  if(!Rec.meta)return;
+  if(Rec.stream)Rec.stream.getTracks().forEach(t=>t.stop());
+  await recSave(true);
+  const m=Rec.meta;Rec.meta=null;Rec.stream=null;Rec.mr=null;Rec.busy=false;
+  const len=hmsKo(m.dur);
+  toast(Rec.saveFail?'녹음 일부를 저장하지 못했어요. 저장 공간을 확인해 주세요.'
+    :Rec.why==='off'?`화면이 5분 넘게 꺼져 있어서 녹음을 끝냈어요. (${len})`
+    :Rec.why==='mic'?`마이크가 끊겨 녹음을 끝냈어요. (${len})`
+    :Rec.why==='err'?`녹음 중 문제가 생겨 멈췄어요. 여기까지 저장했어요. (${len})`
+    :`상담 녹음을 저장했어요. (${len})`);
+  recPaint();
+}
+function recPaintTime(){const t=$('#recTime');if(t&&Rec.on)t.textContent=hms(Date.now()-Rec.start);}
+let recPaintN=0;
+async function recPaint(){
+  const b=$('#recBtn'),t=$('#recTime');if(!b)return;
+  b.textContent=Rec.on?'상담 종료':'상담 시작';b.classList.toggle('on',Rec.on);b.disabled=Rec.busy;
+  if(Rec.on){t.hidden=false;t.className='recTime live';t.disabled=true;t.removeAttribute('aria-label');recPaintTime();return;}
+  t.className='recTime play';t.disabled=false;
+  const n=++recPaintN;let a=[];
+  try{if(cur)a=await Aud.list(cur.id);}catch{}
+  if(n!==recPaintN||Rec.on)return;
+  a=a.filter(m=>m.done);
+  t.hidden=!a.length;
+  if(a.length){const tot=a.reduce((s,m)=>s+(m.dur||0),0);t.textContent='▶ '+hms(tot);t.setAttribute('aria-label',`녹음 듣기 (${a.length}개, ${hmsKo(tot)})`);}
+}
+document.addEventListener('visibilitychange',()=>{
+  if(!Rec.on)return;
+  if(document.hidden){
+    Rec.hiddenAt=Date.now();clearTimeout(Rec.offT);
+    Rec.offT=setTimeout(()=>{if(Rec.on&&document.hidden)recStop('off');},REC_OFF_LIMIT);
+    recSave(false);
+  }else{
+    clearTimeout(Rec.offT);
+    const over=Rec.hiddenAt&&Date.now()-Rec.hiddenAt>=REC_OFF_LIMIT;Rec.hiddenAt=0;
+    if(over)recStop('off');else{recWake();recPaintTime();}
+  }
+});
+window.addEventListener('pagehide',()=>{if(Rec.on)recSave(false);});
+window.addEventListener('beforeunload',e=>{if(Rec.on){recSave(false);e.preventDefault();e.returnValue='';}});
+document.getElementById('panel').addEventListener('click',e=>{
+  if(e.target.closest('#recBtn')){Rec.on?recStop(''):recStart();return;}
+  if(e.target.closest('#recTime')&&!Rec.on)openRecs();
+});
+/* 녹음 듣기 창 */
+let recUrls=[];
+const recDT=ms=>{const d=new Date(ms),p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;};
+function recFile(m){const d=new Date(m.at),p=n=>String(n).padStart(2,'0');
+  const name=(m.company||'상담녹음').replace(/[\\/:*?"<>|\s]+/g,'_').slice(0,40);
+  return`${name}_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.${/mp4/.test(m.mime)?'m4a':'webm'}`;}
+function closeRecs(){document.querySelectorAll('#rpkList audio').forEach(a=>{try{a.pause();}catch{}});recUrls.forEach(u=>URL.revokeObjectURL(u));recUrls=[];$('#rpkList').innerHTML='';$('#recPick').hidden=true;recPaint();}
+async function openRecs(){
+  if(!cur)return;
+  let a=[];try{a=(await Aud.list(cur.id)).filter(m=>m.done);}catch{toast('녹음을 불러오지 못했어요.');return;}
+  const L=$('#rpkList');
+  L.innerHTML=a.length?a.map(m=>`<div class="rpkItem" data-id="${m.id}"><div class="rpkHead"><b>${recDT(m.at)}</b><span>${hms(m.dur)}</span>${m.cut?'<small>중간에 끊김</small>':''}<button type="button" class="btn" data-act="save">저장</button><button type="button" class="btn danger" data-act="del">삭제</button></div><audio controls preload="metadata"></audio></div>`).join('')
+    :'<div class="empty">이 일지에 저장된 녹음이 없어요.</div>';
+  $('#recPick').hidden=false;
+  for(const m of a){const it=L.querySelector(`[data-id="${m.id}"]`),au=it&&it.querySelector('audio');if(!au)continue;
+    const url=URL.createObjectURL(await Aud.blob(m));recUrls.push(url);
+    // 크롬 webm 녹음은 길이 정보가 없어 재생바가 안 움직임 → 끝으로 한 번 보내서 길이를 계산시킴
+    au.addEventListener('loadedmetadata',()=>{if(au.duration!==Infinity)return;au.currentTime=1e101;
+      au.addEventListener('durationchange',function f(){if(au.duration===Infinity)return;au.removeEventListener('durationchange',f);au.currentTime=0;});},{once:true});
+    au.src=url;}
+}
+$('#rpkClose').addEventListener('click',closeRecs);
+$('#recPick').addEventListener('click',async e=>{
+  if(e.target.id==='recPick'){closeRecs();return;}
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const id=b.closest('.rpkItem').dataset.id,m=(await Aud.list(cur&&cur.id)).find(x=>x.id===id);if(!m)return;
+  if(b.dataset.act==='save'){try{downloadFile(recFile(m),await Aud.blob(m),String(m.mime).split(';')[0]);}catch{toast('파일로 저장하지 못했어요.');}return;}
+  if(b.dataset.act==='del'){if(!confirm(`${recDT(m.at)} 녹음(${hmsKo(m.dur)})을 지울까요?\n지우면 되돌릴 수 없어요.`))return;
+    try{await Aud.del(id);b.closest('.rpkItem').remove();toast('녹음을 지웠어요.');if(!$('#rpkList .rpkItem'))closeRecs();}catch{toast('지우지 못했어요.');}}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#recPick').hidden)closeRecs();});
+
 /* ---------- 시작 ---------- */
 buildPanel();syncTools();applyListTitle();
 (async()=>{
@@ -3439,6 +3602,8 @@ buildPanel();syncTools();applyListTitle();
     if(sel)for(const id of [...sel])if(!(listMode==='trash'?trash:logs).has(id))sel.delete(id);
     if(!$('#view-list').hidden)renderList();});
   Store.purgeOld().catch(()=>{});
+  Aud.list().then(async a=>{const left=a.filter(m=>!m.done);for(const m of left){m.done=true;m.cut=true;await Aud.meta(m);}
+    if(left.length)toast('녹음 중에 앱이 꺼졌던 기록이 있어요. 꺼지기 직전까지는 저장해 뒀어요.');}).catch(()=>{});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)Store.purgeOld().catch(()=>{});});
 })();
 /* 서비스워커: 열 때·돌아올 때마다 sw.js를 서버에서 새로 확인(브라우저 캐시 안 씀). 새 버전이 넘어오면 목록 화면일 때 바로 새로고침 */
@@ -3448,6 +3613,7 @@ if('serviceWorker'in navigator&&location.protocol==='https:'){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&swReg)swReg.update().catch(()=>{});});
   const hadCtl=!!navigator.serviceWorker.controller;let reloaded=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadCtl||reloaded)return;
+    if(Rec.on){toast('새 버전을 받았어요. 녹음을 끝낸 뒤 앱을 다시 열면 적용돼요.');return;}
     if(!$('#view-list').hidden||!$('#view-settings').hidden){reloaded=true;flush().finally(()=>location.reload());}
     else toast('새 버전을 받았어요. 목록으로 나갔다가 앱을 다시 열면 적용돼요.');});
 }
