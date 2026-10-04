@@ -2665,8 +2665,11 @@ function rpWrapEm(c,text,maxW,fs){ // 굵은 글자 폭까지 재서 줄바꿈 �
     while(line.length&&line[line.length-1].x===' ')line.pop();out.push(runs(line));}
   return out;}
 function rpTextEm(c,L,x,y,lh,fs,col,colB){L.forEach((rs,i)=>{let xx=x;rs.forEach(r=>{c.font=rpF(r.b?700:400,fs);c.fillStyle=r.b?colB:col;c.fillText(r.t,xx,y+i*lh);xx+=c.measureText(r.t).width;});});}
+/* 시크릿 건 항목은 '우선 확인' 바로 다음으로 모음(가려진 카드가 앞쪽에 보여 궁금증 유발)
+   순서: 우선 확인 → (시크릿: 우선 확인 → 중요 보완점 → 검토 필요 …) → 중요 보완점 → 검토 필요 → 참고 → 보완점 */
+function rpSecOrder(a){const rk=x=>x.lv==='high'?(x.sec?1:0):(x.sec?1:2);return a.map((x,i)=>[x,i]).sort((p,q)=>rk(p[0])-rk(q[0])||p[1]-q[1]).map(p=>p[0]);}
 function rpBlocks(l){
-  const st=rpState(l),R=rpData(l),auto=R.issues.filter(x=>!st.ex[x.id]),iss=[...auto.filter(x=>x.lv==='high'),...R.tips.filter(x=>x.lv==='tipHi'),...auto.filter(x=>x.lv!=='high'),...R.tips.filter(x=>x.lv!=='tipHi')].map(x=>({...x,sec:rpIsSec(l,x.id)})),d=R.d,B=[],txSec=rpIsSec(l,'tx');
+  const st=rpState(l),R=rpData(l),auto=R.issues.filter(x=>!st.ex[x.id]),iss=rpSecOrder([...auto.filter(x=>x.lv==='high'),...R.tips.filter(x=>x.lv==='tipHi'),...auto.filter(x=>x.lv!=='high'),...R.tips.filter(x=>x.lv!=='tipHi')].map(x=>({...x,sec:rpIsSec(l,x.id)}))),d=R.d,B=[],txSec=rpIsSec(l,'tx');
   { const seen=new Set();iss.forEach(x=>{if(!x.now)return;if(seen.has(x.now))x.now='';else seen.add(x.now);}); } // '직원 N명…' 같은 첫 줄은 처음 한 번만
   const office=(settings.office||'').trim(),writer=(settings.writer||d.writer||'').trim(),tel=telFmt((settings.tel||'').trim());
   const gap=h=>B.push({gap:1,h:()=>h,draw(){}});
@@ -2823,7 +2826,7 @@ function rpBlocks(l){
 }
 /* ----- 휴대폰용(카톡용) 배치: 폭 600 논리 좌표. 문구는 A4와 같고 자리만 바꿈 ----- */
 function rpCoverM({d,iss,tx,office,writer,tel}){ // 1쪽: 표지 겸 핵심 요약
-  const top=iss.filter(x=>['high','tipHi','mid'].includes(x.lv)).slice(0,3); // 우선 확인 → 중요 보완점 → 검토 필요 순(iss가 이미 이 순서)
+  const top=iss.filter(x=>['high','tipHi','mid'].includes(x.lv)).slice(0,3); // iss 순서대로: 우선 확인 → 시크릿 항목 → 중요 보완점 → 검토 필요
   return{h:()=>RP_BOT-RP_TOP,draw(c,y){const X=RP_X,W=RP_CW;
     c.fillStyle=RP_ACC;c.fillRect(0,0,RP_W,10);
     let yy=y;c.font=rpF(600,20);c.fillStyle=RP_ACC;const k1=rpWrapBal(c,'사전 검토보고서'+(office?'  ·  '+office:''),W);rpText(c,k1,X,yy+20,30);yy+=(k1.length-1)*30+20;
