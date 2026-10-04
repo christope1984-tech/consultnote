@@ -145,10 +145,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .recBtn:disabled{opacity:.55;cursor:default}
 .recTime{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 4px;border:0;background:none;color:var(--neg);font:inherit;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .recTime[hidden]{display:none}
-.recTime.live::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--neg);animation:recBlink 1.2s steps(2,jump-none) infinite}
 .recTime.play{padding:0 10px;border:1px solid var(--line);border-radius:15px;background:var(--card);color:var(--text);font-size:13px;cursor:pointer}
-@keyframes recBlink{50%{opacity:.15}}
-@media (prefers-reduced-motion:reduce){.recTime.live::before{animation:none}}
 .rpkItem{padding:12px 4px 14px;border-bottom:1px solid var(--line2)}
 .rpkHead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .rpkHead b{font-size:15px;font-variant-numeric:tabular-nums}
