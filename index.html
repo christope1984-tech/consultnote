@@ -346,7 +346,10 @@ select{min-height:46px;padding:0 10px;border-radius:10px;border:1px solid var(--
 .rpTips{display:flex;flex-wrap:wrap;gap:6px}
 .rpTip{min-height:42px;padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:500;cursor:pointer}
 .rpTip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
-.rpHead{display:flex;align-items:baseline;gap:10px}
+.rpHead{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.rpView{margin-left:auto;gap:6px}.rpView label{flex:none;min-height:38px;padding:0 12px;font-size:14px}
+.rpMob{width:100%;max-width:440px;margin:0 auto;border-radius:10px;overflow:hidden;border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.08);background:#fff}
+.rpMob canvas{display:block;width:100%;height:auto}
 #rpPages{display:flex;flex-direction:column;gap:14px}
 .rpPage{display:block;width:100%;height:auto;border-radius:6px;border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.08);background:#fff}
 #panel.corp .only-indiv,#panel:not(.corp) .only-corp{display:none}
@@ -649,7 +652,7 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
           <div class="seg" id="rpLv"><button type="button" data-v="full">자세히</button><button type="button" data-v="brief">핵심만</button></div></div>
         <p class="note-s">규칙으로 만든 사전 검토라 실제 자료를 보면 달라질 수 있어요. 보내기 전에 오른쪽 미리보기를 꼭 읽어 보세요. 사무소명·연락처는 설정 → 기본값에서 넣어요.</p>
       </div>
-      <div class="rpMain"><div class="rpHead"><h3>미리보기</h3><span class="note-s" id="rpInfo" style="margin:0"></span></div><div id="rpPages"></div></div>
+      <div class="rpMain"><div class="rpHead"><h3>미리보기</h3><span class="note-s" id="rpInfo" style="margin:0"></span><div class="rpFmt rpView" id="rpView" role="radiogroup" aria-label="미리보기 형태"><label><input type="radio" name="rpView" value="pc"> PC형</label><label><input type="radio" name="rpView" value="mob"> 모바일형</label></div></div><div id="rpPages"></div></div>
     </div></div>
   </section>
 </div>
@@ -816,7 +819,7 @@ function veil(text,sub,stop){const v=$('#veil');if(!text){v.hidden=true;return;}
 
 /* ---------- 설정 (이 태블릿에만 저장) ---------- */
 const SET_KEY='sd_settings';
-const settings=Object.assign({apiKey:'',model:'claude-sonnet-5-5',modelHQ:'claude-opus-5-5',writer:'',office:'',tel:'',calUrl:'',lineGap:'auto',eraseMode:'part',penBtnErase:'toggle',lastBackup:0,rpFmt:'pdf'},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}');}catch{return{};}})());
+const settings=Object.assign({apiKey:'',model:'claude-sonnet-5-5',modelHQ:'claude-opus-5-5',writer:'',office:'',tel:'',calUrl:'',lineGap:'auto',eraseMode:'part',penBtnErase:'toggle',lastBackup:0,rpFmt:'pdf',rpView:'pc'},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}');}catch{return{};}})());
 function saveSettings(){try{localStorage.setItem(SET_KEY,JSON.stringify(settings));}catch{toast('설정을 저장하지 못했어요.');}}
 
 /* ---------- 저장소: IndexedDB (기존과 같은 DB·구조) ---------- */
@@ -3053,13 +3056,22 @@ function rpList(){
 }
 function rpRefresh(){
   rpList();rpFmtSync();const seq=++rpSeq;rpCache=null;
-  const{pages}=rpPaint(cur),box=$('#rpPages');box.textContent='';
-  pages.forEach(cv=>{cv.className='rpPage';box.appendChild(cv);});
+  const{pages}=rpPaint(cur),box=$('#rpPages'),mob=settings.rpView==='mob';box.textContent='';
+  if(!mob)pages.forEach(cv=>{cv.className='rpPage';box.appendChild(cv);});
   $('#rpInfo').textContent=`PC형 ${pages.length}쪽`;
   const title=(disp(cur).company||'')+' 사전 검토보고서';
   const jA=[];rpCache={seq,j:jA,p:rpPdf(pages,title,undefined,jA)};rpCache.p.catch(()=>{});
-  rpCacheM=null;clearTimeout(rpTM);rpTM=setTimeout(()=>{if(seq===rpSeq&&cur&&!$('#view-report').hidden)rpBuildM();},400); // 카톡용은 버튼 누르기 전에 미리
+  rpCacheM=null;clearTimeout(rpTM);
+  if(mob){rpBuildM();rpShowM(box);} // 모바일형 미리보기: 보낼 때와 같은 한 장짜리 그림
+  else rpTM=setTimeout(()=>{if(seq===rpSeq&&cur&&!$('#view-report').hidden)rpBuildM();},400); // 카톡용은 버튼 누르기 전에 미리
 }
+function rpShowM(box){ // 모바일형 띠 그림을 절반 크기로 줄여 위아래로 붙여 보여 줌(메모리 아낌)
+  const P=rpPaintLong(cur),wrap=document.createElement('div');wrap.className='rpMob';
+  for(let k=0;k<P.n;k++){const cv=P.draw(k),sm=document.createElement('canvas');sm.width=Math.round(cv.width/2);sm.height=Math.round(cv.height/2);
+    const g=sm.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(cv,0,0,sm.width,sm.height);cv.width=cv.height=0;
+    if(k)sm.style.marginTop=`-${(P.OV/P.W*100).toFixed(4)}%`; // 띠끼리 겹친 만큼 위로
+    wrap.appendChild(sm);}
+  box.appendChild(wrap);}
 async function rpBlob(){if(!rpCache)rpRefresh();return rpCache.p;}
 function rpBuildM(){const seq=rpSeq,P=rpPaintLong(cur),a4=$('#rpInfo').textContent.split(' · ')[0];
   const jM=[];rpCacheM={seq,j:jM,ov:P.OV,p:rpPdfLong(P,(disp(cur).company||'')+' 사전 검토보고서',jM)};rpCacheM.p.catch(()=>{});
@@ -3092,7 +3104,9 @@ async function rpSend(mob){ // 공유창으로 보내기: mob=1 모바일형, 0 
     catch(e){if(e&&e.name==='AbortError')return;toast(`공유 창을 열지 못했어요. ${lb} 파일을 내려받아 카카오톡에서 파일로 보내 주세요.`);}
   }else{downloadFile(f.name,f,ty);toast(`이 화면에서는 바로 공유가 안 돼서 ${lb} 파일을 내려받았어요. 카카오톡에서 파일로 보내 주세요.`);}
 }
-function rpFmtSync(){document.querySelectorAll('#rpFmt input').forEach(x=>x.checked=x.value===(settings.rpFmt==='html'?'html':'pdf'));}
+function rpFmtSync(){document.querySelectorAll('#rpFmt input').forEach(x=>x.checked=x.value===(settings.rpFmt==='html'?'html':'pdf'));
+  document.querySelectorAll('#rpView input').forEach(x=>x.checked=x.value===(settings.rpView==='mob'?'mob':'pc'));}
+$('#rpView').addEventListener('change',e=>{if(e.target.name!=='rpView'||!cur)return;settings.rpView=e.target.value;saveSettings();rpRefresh();});
 $('#rpFmt').addEventListener('change',e=>{if(e.target.name!=='rpFmt')return;settings.rpFmt=e.target.value;saveSettings();});
 $('#rpShare').addEventListener('click',()=>rpSend(1));
 $('#rpShareA4').addEventListener('click',()=>rpSend(0));
