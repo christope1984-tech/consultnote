@@ -611,8 +611,8 @@ table.it td:last-child{width:80px;text-align:right;white-space:nowrap}
     <header class="bar">
       <button class="tool" id="rpBack" aria-label="뒤로"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
       <h1 id="rpTitle">검토보고서</h1>
-      <button class="btn" id="rpSave">PDF 저장</button>
-      <button class="btn primary" id="rpShare">카톡으로 보내기</button>
+      <button class="btn" id="rpSave" title="A4 PDF 내려받기 (PC·보관·출력용)">PDF</button>
+      <button class="btn primary" id="rpShare" title="휴대폰 화면에 맞춘 PDF를 공유창으로 보내기">카톡용</button>
     </header>
     <div class="scroll" id="rpScroll"><div class="wrap rpWrap">
       <div class="rpSide">
@@ -2242,7 +2242,7 @@ const WB_DEF={amt:3000,base:3.5,cut:1};
 function wbCalc(p){const amt=+p.amt>0?+p.amt:WB_DEF.amt,base=+p.base>0?+p.base:WB_DEF.base,cut=p.cut===''||p.cut===undefined||isNaN(+p.cut)?WB_DEF.cut:+p.cut,P=amt*10000;
   const f=pct=>{const r=pct/100;return{pct,m:P*r/12,first:P/36+P*r/12,tot:P*r*(2+37/24)};};return{amt,base,cut,A:f(base),B:f(Math.max(0,base-cut))};}
 const wonF=v=>Math.round(v).toLocaleString()+'원';
-let reportFrom='detail',rpCache=null,rpT=null,rpSeq=0;
+let reportFrom='detail',rpCache=null,rpCacheM=null,rpT=null,rpTM=null,rpSeq=0;
 function rpOpenInfo(l){
   const sel=(l.fields&&l.fields.sel)||{},O=sel.openDate||{},on=O.n||{},od=O.d||'';let Y=+on.y||0,M=+on.m||0;
   if(!Y&&/^\d{4}-\d{2}/.test(od)){Y=+od.slice(0,4);M=+od.slice(5,7);}
@@ -2562,7 +2562,15 @@ function rpData(l){
 }
 
 /* ----- A4 캔버스 그리기 (150dpi) ----- */
-const RP_W=1240,RP_H=1754,RP_X=104,RP_CW=RP_W-RP_X*2,RP_TOP=104,RP_BOT=1632,RP_ACC='#1D5C4D',RP_TX='#16202A',RP_MU='#5B6874',RP_LN='#D5DDE2';
+let RP_W=1240,RP_H=1754,RP_X=104,RP_CW=RP_W-RP_X*2,RP_TOP=104,RP_BOT=1632,RP_MOB=0,RP_S=1; // RP_MOB: 휴대폰용(카톡용) 배치, RP_S: 논리 좌표 → 픽셀 배율
+const RP_ACC='#1D5C4D',RP_TX='#16202A',RP_MU='#5B6874',RP_LN='#D5DDE2';
+/* 휴대폰용: 폭 600(논리) × 1.8배 = 1080×1920 픽셀(9:16). A4보다 폭이 절반쯤이라 같은 글자 크기가 폰에서 약 2배로 보임 */
+const RP_MOB_PT=[360,640];
+function rpMode(m){if(m==='mob'){RP_MOB=1;RP_S=1.8;RP_W=600;RP_H=1920/1.8;RP_X=32;RP_TOP=52;RP_BOT=RP_H-84;}
+  else{RP_MOB=0;RP_S=1;RP_W=1240;RP_H=1754;RP_X=104;RP_TOP=104;RP_BOT=1632;}RP_CW=RP_W-RP_X*2;}
+function rpWrapBal(c,t,maxW){const L=rpWrap(c,t,maxW);if(L.length<2)return L;let w=maxW,best=L; // 제목 줄바꿈: 마지막 줄에 한 단어만 남지 않게 줄 길이를 고르게
+  while(w>maxW*.5){w-=8;const T=rpWrap(c,t,w);if(T.length>L.length)break;best=T;}return best;}
+function rpFitF(c,t,w,fs,min,wt){c.font=rpF(wt,fs);while(fs>min&&c.measureText(t).width>w){fs-=2;c.font=rpF(wt,fs);}return fs;}
 const rpF=(w,s)=>`${w} ${s}px "IBM Plex Sans KR","Noto Sans KR","Noto Sans CJK KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif`;
 function rpWrap(ctx,text,maxW){
   const out=[];
@@ -2583,9 +2591,13 @@ function rpWrap(ctx,text,maxW){
 const RP_SYL='이가는을를에서의로고하다한수있습니대표님사업장세금공제감면신고경비처리직원인원적용확인관리방법기준금액매년해당요건계산절약방안';
 function rpScr(t){let o='',i=0;for(const ch of String(t||'')){const cp=ch.codePointAt(0);i++; // 가린 부분은 실제 글자 대신 섞은 글자를 흐리게 그림(PDF에서 복원 불가)
   o+=cp>=0xAC00&&cp<=0xD7A3?RP_SYL[(cp+i*7)%RP_SYL.length]:/[0-9]/.test(ch)?String((+ch*7+i)%10):/[A-Za-z]/.test(ch)?'x':ch;}return o;}
-function rpBlur(c,x,y,w,h,draw){const o=document.createElement('canvas');o.width=Math.ceil(w)+48;o.height=Math.ceil(h)+48;const g=o.getContext('2d');g.translate(24,24);draw(g);
+function rpBlur(c,x,y,w,h,draw){if(RP_S!==1)return rpBlurS(c,x,y,w,h,draw);const o=document.createElement('canvas');o.width=Math.ceil(w)+48;o.height=Math.ceil(h)+48;const g=o.getContext('2d');g.translate(24,24);draw(g);
   c.save();if('filter' in c){c.filter='blur(5px)';c.drawImage(o,x-24,y-24);c.filter='none';c.globalAlpha=.08;c.fillStyle='#fff';c.fillRect(x-6,y-6,w+12,h+12);}
   else{c.globalAlpha=.3;c.drawImage(o,x-24,y-24);}c.restore();}
+function rpBlurS(c,x,y,w,h,draw){const S=RP_S,o=document.createElement('canvas');o.width=Math.ceil((w+48)*S);o.height=Math.ceil((h+48)*S);const g=o.getContext('2d');g.scale(S,S);g.translate(24,24);draw(g);
+  c.save();c.setTransform(1,0,0,1,0,0);const dx=(x-24)*S,dy=(y-24)*S; // 픽셀 좌표에서 흐림(배율만큼 반경도 키움)
+  if('filter' in c){c.filter=`blur(${5*S}px)`;c.drawImage(o,dx,dy);c.filter='none';c.globalAlpha=.08;c.fillStyle='#fff';c.fillRect((x-6)*S,(y-6)*S,(w+12)*S,(h+12)*S);}
+  else{c.globalAlpha=.3;c.drawImage(o,dx,dy);}c.restore();}
 function rpLock(c,cx,cy,sm){const t='계약 후 공개',fs=sm?17:23,ic=sm?13:18;c.font=rpF(700,fs);const tw=c.measureText(t).width,pw=tw+ic+(sm?30:48),ph=sm?32:50,x0=cx-pw/2;
   c.save();c.shadowColor='rgba(0,0,0,.18)';c.shadowBlur=sm?6:12;c.fillStyle='#2E2A3B';rpRound(c,x0,cy-ph/2,pw,ph,ph/2);c.fill();c.restore();
   const lx=x0+(sm?12:18),ly=cy-ic*.55;c.strokeStyle='#fff';c.lineWidth=sm?2:2.6;c.beginPath();c.arc(lx+ic/2,ly+ic*.42,ic*.3,Math.PI,0);c.stroke();
@@ -2617,7 +2629,8 @@ function rpBlocks(l){
   const office=(settings.office||'').trim(),writer=(settings.writer||d.writer||'').trim(),tel=telFmt((settings.tel||'').trim());
   const gap=h=>B.push({gap:1,h:()=>h,draw(){}});
   /* 표지 머리 */
-  B.push({h:()=>300,draw(c,y){
+  if(RP_MOB){B.push(rpCoverM({d,iss,tx:R.tx,office,writer,tel}));B.push({pg:1,h:()=>0,draw(){}});}
+  else B.push({h:()=>300,draw(c,y){
     c.fillStyle=RP_ACC;c.fillRect(0,0,RP_W,14);
     c.font=rpF(600,22);c.fillStyle=RP_ACC;c.fillText('사전 검토보고서'+(office?'  ·  '+office:''),RP_X,y+20);
     c.font=rpF(700,50);c.fillStyle=RP_TX;c.fillText('세무·노무 사전 검토 의견',RP_X,y+92);
@@ -2632,11 +2645,15 @@ function rpBlocks(l){
     :nt?`상담 때 말씀해 주신 내용을 바탕으로 사업에 도움이 될 보완점 ${nt}가지를 정리했습니다.`+hiS:'상담 때 말씀해 주신 내용을 정리했습니다. 실제 자료를 확인하면 더 구체적인 검토 의견을 드릴 수 있습니다.';
   const tx=R.tx,txSum=tx&&tx.tot>=1?(tx.th?` 특히 올해부터 절세 항목을 챙기면 3년간 약 ${txWon(tx.tot)}의 세금을 줄일 수 있습니다.`:` 특히 놓치고 계신 절세 항목을 챙기면 3년간 약 ${txWon(tx.tot)}의 세금을 줄일 수 있습니다.`):'';
   const secN=iss.filter(x=>x.sec).length+(txSec&&tx?1:0),secS=secN?' 일부 맞춤 방안은 계약 후 자세히 공개해 드립니다.':'';
-  B.push({h(c){c.font=rpF(500,25);this.L=rpWrap(c,sum+txSum+secS,RP_CW-64);return this.L.length*40+56+28;},draw(c,y){
+  const sp=RP_MOB?24:32;
+  B.push({h(c){c.font=rpF(500,25);this.L=rpWrap(c,sum+txSum+secS,RP_CW-sp*2);return this.L.length*40+56+28;},draw(c,y){
     const h=this.L.length*40+56;c.fillStyle='#E4F0EB';rpRound(c,RP_X,y,RP_CW,h,14);c.fill();c.fillStyle=RP_ACC;c.fillRect(RP_X,y+14,6,h-28);
-    c.font=rpF(500,25);c.fillStyle='#163F35';rpText(c,this.L,RP_X+32,y+28+28,40);}});
+    c.font=rpF(500,25);c.fillStyle='#163F35';rpText(c,this.L,RP_X+sp,y+28+28,40);}});
   /* 한눈에 보는 절세 효과 (계산 근거·단가는 싣지 않음) */
-  if(tx&&tx.tot>=1){const rows=tx.items,y1=tx.Y[0];
+  const txFoot=()=>'상담 때 말씀하신 '+(tx.th?'올해 예상 종합소득세 ':'작년 종합소득세 ')+txWon(tx.T0)+'을 기준으로 최저한세까지 반영해 추정한 금액입니다(국세 기준, 지방소득세 별도). '+(tx.ny||tx.no?'같은 소득이 이어지고 늘린 인원을 유지한다고 보았으며':'같은 소득이 이어진다고 보았으며')+', 실제 종합소득세 신고 때는 장부와 공제 내역에 따라 금액에 오차가 있을 수 있습니다.'+(tx.stEnd?` 창업중소기업 세액감면은 감면 기간이 끝나는 ${tx.stEnd}년까지만 반영했습니다.`:'')
+      +(tx.blkHire>=0.5?(txSec?' 최저한세 때문에 바로 받지 못하는 공제 일부는 다음 해로 넘겨 쓸 수 있습니다.':' 최저한세 때문에 바로 받지 못하는 통합고용세액공제는 다음 해로 넘겨 쓸 수 있습니다.'):'');
+  if(tx&&tx.tot>=1&&RP_MOB)rpTaxM(B,tx,txSec,txFoot());
+  else if(tx&&tx.tot>=1){const rows=tx.items,y1=tx.Y[0];
     const foot='상담 때 말씀하신 '+(tx.th?'올해 예상 종합소득세 ':'작년 종합소득세 ')+txWon(tx.T0)+'을 기준으로 최저한세까지 반영해 추정한 금액입니다(국세 기준, 지방소득세 별도). '+(tx.ny||tx.no?'같은 소득이 이어지고 늘린 인원을 유지한다고 보았으며':'같은 소득이 이어진다고 보았으며')+', 실제 종합소득세 신고 때는 장부와 공제 내역에 따라 금액에 오차가 있을 수 있습니다.'+(tx.stEnd?` 창업중소기업 세액감면은 감면 기간이 끝나는 ${tx.stEnd}년까지만 반영했습니다.`:'')
       +(tx.blkHire>=0.5?(txSec?' 최저한세 때문에 바로 받지 못하는 공제 일부는 다음 해로 넘겨 쓸 수 있습니다.':' 최저한세 때문에 바로 받지 못하는 통합고용세액공제는 다음 해로 넘겨 쓸 수 있습니다.'):'');
     B.push({h(c){c.font=rpF(400,19);this.F=rpWrap(c,foot,RP_CW-80);this.hh=520+52+rows.length*48+20+this.F.length*30+30;return this.hh+28;},draw(c,y){
@@ -2666,6 +2683,7 @@ function rpBlocks(l){
   let wbDone=0;const wbPush=()=>{if(!R.wb||wbDone)return;wbDone=1;const w=R.wb,pf=v=>(Math.round(v*100)/100)+'%',wbSec=rpIsSec(l,'tip_womenBiz');
     const rows=[['확인서 없을 때',w.A,0],['여성기업 확인서',w.B,1]],dif={m:w.A.m-w.B.m,first:w.A.first-w.B.first,tot:w.A.tot-w.B.tot};
     const note='일반경영안정자금 2년 거치·3년 분할상환 기준 예시입니다. 우대 이율은 대표님 개인 상황(신용도·업력 등)과 지역 신용보증재단 상황에 따라 달라질 수 있으며, 정책자금 금리도 분기마다 바뀌므로 신청 시점 기준으로 다시 안내해 드립니다.';
+    if(RP_MOB){B.push(rpWbM(w,wbSec,dif,pf,note));return;}
     B.push({h(c){c.font=rpF(400,19);this.F=rpWrap(c,note,RP_CW-80);this.hh=120+50+52*3+14+this.F.length*30+30;return this.hh+28;},draw(c,y){
       const h=this.hh,X=RP_X+40,W=RP_CW-80;c.fillStyle='#FFFFFF';c.strokeStyle=RP_LN;c.lineWidth=2;rpRound(c,RP_X,y,RP_CW,h,16);c.fill();c.stroke();
       c.font=rpF(700,22);c.fillStyle=RP_ACC;c.fillText(wbSec?'정책자금 대출 이자 줄이는 방법':'여성기업 확인서로 줄어드는 대출 이자',X,y+50);
@@ -2684,33 +2702,39 @@ function rpBlocks(l){
   { const txK=new Set(tx?tx.items.map(i=>TX_TIP[i[0]]).filter(Boolean).map(x=>'tip_'+x):[]);if(tx&&tx.items.some(i=>i[0]==='창업중소기업 세액감면'))['relief','reliefChk'].forEach(x=>txK.add(x)); // 절세 줄과 같은 내용은 한 번만
     const acts=[...(tx?tx.items.map(([k,a])=>({lv:'tip',lb:'절세',t:k+' 적용',r:'3년 약 '+txWon(a[0]+a[1]+a[2]),sec:txSec})):[]),...iss.filter(x=>!txK.has(x.id)&&['high','mid','tipHi'].includes(x.lv)).map(x=>({lv:x.lv,lb:RP_LV[x.lv][0],t:x.t,sec:x.sec}))];
     const restN=iss.filter(x=>!txK.has(x.id)&&!['high','mid','tipHi'].includes(x.lv)).length;
-    actRows=acts.map(a=>({h:()=>54,draw(c,y){const col=a.lb==='절세'?RP_ACC:RP_LV[a.lv][1];c.font=rpF(600,18);const bw=c.measureText(a.lb).width+24;
+    actRows=acts.map((a,i)=>RP_MOB?rpActM(a,i===acts.length-2):({h:()=>54,draw(c,y){const col=a.lb==='절세'?RP_ACC:RP_LV[a.lv][1];c.font=rpF(600,18);const bw=c.measureText(a.lb).width+24;
       c.fillStyle=col;rpRound(c,RP_X,y+10,bw,30,15);c.fill();c.fillStyle='#fff';c.fillText(a.lb,RP_X+12,y+31);
       if(a.sec){c.font=rpF(500,24);const tt=rpScr(a.t),tw=c.measureText(tt).width;rpBlur(c,RP_X+bw+16,y+8,tw,36,g=>{g.font=rpF(500,24);g.fillStyle=RP_TX;g.fillText(tt,0,26);});
         const lx=RP_X+bw+16+Math.max(tw,140)/2;rpLock(c,lx,y+26,1);}
       else{c.font=rpF(500,24);c.fillStyle=RP_TX;c.fillText(a.t,RP_X+bw+16,y+34);}
       if(a.r){c.font=rpF(700,23);c.fillStyle=RP_UP;c.fillText(a.r,RP_X+RP_CW-c.measureText(a.r).width,y+34);}
       c.fillStyle='#E8EDF0';c.fillRect(RP_X,y+52,RP_CW,1);}}));
-    if(restN&&actRows.length){const L=actRows[actRows.length-1],d0=L.draw; // 마지막 줄에 붙여서 쪽이 바뀌어도 혼자 떨어지지 않게
+    if(restN&&actRows.length&&RP_MOB){const L=actRows[actRows.length-1],h0=L.h,d0=L.draw,t=`그 밖에 위에서 말씀드린 ${restN}가지도 함께 챙겨 드립니다.`;
+      L.h=function(c){const h=h0.call(this,c);c.font=rpF(500,23);this.RL=rpWrap(c,t,RP_CW);this.h0=h;return h+14+this.RL.length*34+8;};
+      L.draw=function(c,y){d0.call(this,c,y);c.font=rpF(500,23);c.fillStyle=RP_MU;rpText(c,this.RL,RP_X,y+this.h0+36,34);};}
+    else if(restN&&actRows.length){const L=actRows[actRows.length-1],d0=L.draw; // 마지막 줄에 붙여서 쪽이 바뀌어도 혼자 떨어지지 않게
       L.h=()=>54+50;L.draw=function(c,y){d0.call(this,c,y);c.font=rpF(500,23);c.fillStyle=RP_MU;c.fillText(`그 밖에 위에서 말씀드린 ${restN}가지도 함께 챙겨 드립니다.`,RP_X,y+54+36);};}}
   let no=0;
-  const head=(t,keep)=>{const k=++no;B.push({head:1,keep,h:()=>90,draw(c,y){c.font=rpF(700,32);c.fillStyle=RP_ACC;c.fillText(k+'. '+t,RP_X,y+44);c.fillStyle=RP_ACC;c.fillRect(RP_X,y+60,56,4);}});};
+  const head=(t,keep)=>{const k=++no;B.push(RP_MOB?{head:1,keep,h(c){c.font=rpF(700,32);this.L=rpWrapBal(c,k+'. '+t,RP_CW);return this.L.length*44+46;},
+      draw(c,y){c.font=rpF(700,32);c.fillStyle=RP_ACC;rpText(c,this.L,RP_X,y+44,44);c.fillRect(RP_X,y+60+(this.L.length-1)*44,56,4);}}
+    :{head:1,keep,h:()=>90,draw(c,y){c.font=rpF(700,32);c.fillStyle=RP_ACC;c.fillText(k+'. '+t,RP_X,y+44);c.fillStyle=RP_ACC;c.fillRect(RP_X,y+60,56,4);}});};
   const bullets=a=>a.forEach(t=>B.push({h(c){c.font=rpF(400,24);this.L=rpWrap(c,t,RP_CW-40);return this.L.length*38+16;},draw(c,y){
     c.fillStyle=RP_ACC;c.beginPath();c.arc(RP_X+10,y+20,5,0,Math.PI*2);c.fill();c.font=rpF(400,24);c.fillStyle=RP_TX;rpText(c,this.L,RP_X+36,y+28,38);}}));
   /* 1. 현황 */
   if(R.facts.length){head('사업 현황',R.facts.length);
-    R.facts.forEach(([k,v],i)=>B.push({h(c){c.font=rpF(400,24);this.L=rpWrap(c,v,RP_CW-270);return this.L.length*38+38;},draw(c,y){
+    R.facts.forEach(([k,v],i)=>B.push(RP_MOB?rpFactM(k,v,i,i===R.facts.length-2):{h(c){c.font=rpF(400,24);this.L=rpWrap(c,v,RP_CW-270);return this.L.length*38+38;},draw(c,y){
       const h=this.L.length*38+38;if(i%2===0){c.fillStyle='#F4F7F8';c.fillRect(RP_X,y,RP_CW,h);}
       c.font=rpF(600,23);c.fillStyle=RP_MU;c.fillText(k,RP_X+20,y+46);c.font=rpF(400,24);c.fillStyle=RP_TX;rpText(c,this.L,RP_X+260,y+46,38);}}));
     gap(40);}
   /* 2. 검토 의견 */
-  if(iss.length){B.push({pg:1,h:()=>0,draw(){}});head('검토 의견');
-    const secCard=x=>({h(c){const w=RP_CW-76;c.font=rpF(600,19);this.bw=c.measureText(RP_LV[x.lv][0]).width+28;
+  if(iss.length){if(!RP_MOB)B.push({pg:1,h:()=>0,draw(){}});head('검토 의견');
+    const cX=RP_MOB?30:48,cW=RP_MOB?RP_CW-50:RP_CW-76; // 카드 안쪽 왼쪽 여백 / 글 폭
+    const secCard=x=>({h(c){const w=cW;c.font=rpF(600,19);this.bw=c.measureText(RP_LV[x.lv][0]).width+28;
         c.font=rpF(700,26);this.N=rpWrap(c,x.now||'대표님 사업장에 맞춘 방안을 준비했습니다.',w-this.bw-16);
         c.font=rpF(700,28);this.T=rpWrap(c,rpScr(x.t),w);c.font=rpF(400,23);this.Bd=st.brief?[]:rpWrap(c,rpScr(rpEmStrip(x.body)),w);c.font=rpF(600,23);this.A=rpWrap(c,rpScr('→ '+x.act),w);
         this.hb=this.T.length*42+10+(this.Bd.length?this.Bd.length*36+14:0)+this.A.length*36;this.hb=Math.max(this.hb,130);
         this.hh=36+this.N.length*38+22+this.hb+34;return this.hh+34;},
-      draw(c,y){const[lb,col]=RP_LV[x.lv],h=this.hh,x0=RP_X+48,w=RP_CW-76;
+      draw(c,y){const[lb,col]=RP_LV[x.lv],h=this.hh,x0=RP_X+cX,w=cW;
         c.fillStyle='#FFFFFF';c.strokeStyle=RP_LN;c.lineWidth=2;rpRound(c,RP_X,y,RP_CW,h,14);c.fill();c.stroke();
         c.fillStyle=col;rpRound(c,RP_X,y,10,h,5);c.fill();c.fillRect(RP_X+5,y,5,h);
         let yy=y+36;c.font=rpF(600,19);c.fillStyle=col;rpRound(c,x0,yy-4,this.bw,34,17);c.fill();c.fillStyle='#fff';c.fillText(lb,x0+14,yy+20);
@@ -2719,9 +2743,10 @@ function rpBlocks(l){
         rpBlur(c,x0,yy,w,this.hb,g=>{let gy=0;g.font=rpF(700,28);g.fillStyle=RP_TX;rpText(g,T,0,gy+28,42);gy+=T.length*42+10;
           if(Bd.length){g.font=rpF(400,23);g.fillStyle='#3C4852';rpText(g,Bd,0,gy+26,36);gy+=Bd.length*36+14;}g.font=rpF(600,23);g.fillStyle=RP_ACC;rpText(g,A,0,gy+26,36);});
         rpLock(c,x0+w/2,yy+this.hb/2);}});
-    iss.forEach((x,i)=>{B.push(x.sec?secCard(x):{h(c){const w=RP_CW-76;c.font=rpF(700,28);this.T=rpWrap(c,x.t,w-170);c.font=rpF(500,24);this.N=x.now?rpWrap(c,x.now,w):[];this.Bd=st.brief?[]:rpWrapEm(c,x.body,w,23);c.font=rpF(600,23);this.A=rpWrap(c,'→ '+x.act,w);
-        this.hh=36+this.T.length*42+12+(this.N.length?this.N.length*37+14:0)+(this.Bd.length?this.Bd.length*36+18:4)+this.A.length*36+30;return this.hh+34;},
-      draw(c,y){const[lb,col]=RP_LV[x.lv],h=this.hh,x0=RP_X+48;
+    iss.forEach((x,i)=>{B.push(x.sec?secCard(x):{h(c){const w=cW;let tw=w-170;if(RP_MOB){c.font=rpF(600,19);tw=w-(c.measureText(RP_LV[x.lv][0]).width+28)-16;}c.font=rpF(700,28);this.T=RP_MOB?rpWrapBal(c,x.t,tw):rpWrap(c,x.t,tw);c.font=rpF(500,24);this.N=x.now?rpWrap(c,x.now,w):[];this.Bd=st.brief?[]:rpWrapEm(c,x.body,w,23);c.font=rpF(600,23);this.A=rpWrap(c,'→ '+x.act,w);
+        this.hh=36+this.T.length*42+12+(this.N.length?this.N.length*37+14:0)+(this.Bd.length?this.Bd.length*36+18:4)+this.A.length*36+30;if(RP_MOB)this.cuts=rpCardCuts(this);return this.hh+34;},
+      ext(c,y0,y1){c.fillStyle=RP_LV[x.lv][1];c.fillRect(RP_X,y0,10,y1-y0);c.fillStyle=RP_LN;c.fillRect(RP_X+RP_CW-1,y0,2,y1-y0);}, // 휴대폰용: 쪽에서 나뉜 카드의 옆 테두리만 조금 더
+      draw(c,y){const[lb,col]=RP_LV[x.lv],h=this.hh,x0=RP_X+cX;
         c.fillStyle='#FFFFFF';c.strokeStyle=RP_LN;c.lineWidth=2;rpRound(c,RP_X,y,RP_CW,h,14);c.fill();c.stroke();
         c.fillStyle=col;rpRound(c,RP_X,y,10,h,5);c.fill();c.fillRect(RP_X+5,y,5,h);
         let yy=y+36;c.font=rpF(600,19);const bw=c.measureText(lb).width+28;c.fillStyle=col;rpRound(c,x0,yy-4,bw,34,17);c.fill();c.fillStyle='#fff';c.fillText(lb,x0+14,yy+20);
@@ -2736,37 +2761,169 @@ function rpBlocks(l){
     if(gl.length){head('상담 중 안내드린 내용');bullets(gl);gap(R.wb&&!wbDone?24:40);} }
   if(R.wb&&!wbDone){wbPush();gap(12);} // 여성기업 확인서 카드가 없으면 안내 내용 아래에
   head('맡겨 주시면 체계적으로 관리해 드립니다');
-  if(actRows.length){const sub=t=>B.push({h:()=>58,draw(c,y){c.font=rpF(700,24);c.fillStyle=RP_MU;c.fillText(t,RP_X,y+34);}});
+  if(actRows.length){const sub=t=>B.push({kn:RP_MOB,h:()=>58,draw(c,y){c.font=rpF(700,24);c.fillStyle=RP_MU;c.fillText(t,RP_X,y+34);}});
     sub('이번 검토에서 챙겨 드릴 일');actRows.forEach(b=>B.push(b));gap(30);sub('기본으로 함께 관리해 드리는 일');}
-  bullets(R.svc);gap(44);
+  bullets(R.svc);if(RP_MOB)B.slice(-2).forEach(b=>b.kn=1);gap(44);
   /* 맺음 */
   const disc='이 보고서는 상담 때 말씀해 주신 내용을 바탕으로 한 사전 검토입니다. 실제 장부와 신고 자료를 확인하면 내용이 달라질 수 있으며, 최종 판단은 자료를 검토한 뒤 다시 안내해 드립니다. 대표님 사업장을 위해 작성한 자료이니 무단 복제나 외부 제공은 삼가 주시기 바랍니다.';
   const contact=[office,writer,tel].filter(Boolean).join('  ·  ');
-  B.push({h(c){c.font=rpF(400,21);this.L=rpWrap(c,disc,RP_CW-64);return this.L.length*33+52+(contact?70:0)+10;},draw(c,y){
+  if(RP_MOB)B.push({h(c){c.font=rpF(400,21);this.L=rpWrap(c,disc,RP_CW-48);c.font=rpF(500,24);this.C=contact?rpJoinWrap(c,[office,writer,tel].filter(Boolean),'  ·  ',RP_CW-48-68):[];
+      this.hh=this.L.length*33+44+(contact?this.C.length*34+44:0);return this.hh+10;},draw(c,y){
+    c.fillStyle='#F4F7F8';rpRound(c,RP_X,y,RP_CW,this.hh,14);c.fill();c.font=rpF(400,21);c.fillStyle=RP_MU;rpText(c,this.L,RP_X+24,y+46,33);
+    if(contact){const yy=y+this.L.length*33+42;c.fillStyle=RP_LN;c.fillRect(RP_X+24,yy,RP_CW-48,1);
+      c.font=rpF(700,24);c.fillStyle=RP_TX;c.fillText('문의',RP_X+24,yy+44);c.font=rpF(500,24);rpText(c,this.C,RP_X+24+68,yy+44,34);}}});
+  else B.push({h(c){c.font=rpF(400,21);this.L=rpWrap(c,disc,RP_CW-64);return this.L.length*33+52+(contact?70:0)+10;},draw(c,y){
     const h=this.L.length*33+52+(contact?70:0);c.fillStyle='#F4F7F8';rpRound(c,RP_X,y,RP_CW,h,14);c.fill();
     c.font=rpF(400,21);c.fillStyle=RP_MU;rpText(c,this.L,RP_X+32,y+50,33);
     if(contact){const yy=y+this.L.length*33+48;c.fillStyle=RP_LN;c.fillRect(RP_X+32,yy,RP_CW-64,1);
       c.font=rpF(700,24);c.fillStyle=RP_TX;c.fillText('문의',RP_X+32,yy+46);c.font=rpF(500,24);c.fillText(contact,RP_X+100,yy+46);}}});
   return{B,R,iss,office};
 }
+/* ----- 휴대폰용(카톡용) 배치: 폭 600 논리 좌표. 문구는 A4와 같고 자리만 바꿈 ----- */
+function rpCoverM({d,iss,tx,office,writer,tel}){ // 1쪽: 표지 겸 핵심 요약
+  const top=iss.filter(x=>['high','tipHi','mid'].includes(x.lv)).slice(0,3); // 우선 확인 → 중요 보완점 → 검토 필요 순(iss가 이미 이 순서)
+  return{h:()=>RP_BOT-RP_TOP,draw(c,y){const X=RP_X,W=RP_CW;
+    c.fillStyle=RP_ACC;c.fillRect(0,0,RP_W,10);
+    let yy=y;c.font=rpF(600,20);c.fillStyle=RP_ACC;const k1=rpWrapBal(c,'사전 검토보고서'+(office?'  ·  '+office:''),W);rpText(c,k1,X,yy+20,30);yy+=(k1.length-1)*30+20;
+    const t1='세무·노무 사전 검토 의견',f1=rpFitF(c,t1,W,44,32,700);c.fillStyle=RP_TX;c.fillText(t1,X,yy+24+f1);yy+=24+f1;
+    if(d.company){c.font=rpF(700,34);const L=rpWrapBal(c,d.company,W);rpText(c,L,X,yy+64,46);yy+=64+(L.length-1)*46;}
+    c.font=rpF(500,28);c.fillStyle=RP_TX;const L2=rpWrapBal(c,(d.ceo?d.ceo+' 대표님':'대표님')+' 귀하',W);rpText(c,L2,X,yy+(d.company?48:64),40);yy+=(d.company?48:64)+(L2.length-1)*40;
+    c.font=rpF(400,20);c.fillStyle=RP_MU;const L3=[...rpWrap(c,'상담일 '+rpDate(d.visitDate),W),...(writer?rpWrap(c,'작성 '+[office,writer].filter(Boolean).join(' '),W):[])];
+    rpText(c,L3,X,yy+44,30);yy+=44+(L3.length-1)*30+28;c.fillStyle=RP_LN;c.fillRect(X,yy,W,2);yy+=28;
+    /* 문의 상자(아래에 고정) 높이 먼저 */
+    c.font=rpF(700,26);const CO=office||writer?rpJoinWrap(c,[office,writer].filter(Boolean),'  ·  ',W-48):[];const cH=writer||tel||office?30+28+CO.length*36+(tel?54:0)+18:0;
+    const yC=RP_BOT-cH;
+    /* 3년 절세 */
+    if(tx&&tx.tot>=1){const bh=126;c.fillStyle='#fff';c.strokeStyle=RP_ACC;c.lineWidth=3;rpRound(c,X,yy,W,bh,16);c.fill();c.stroke();
+      c.font=rpF(700,20);c.fillStyle=RP_ACC;c.fillText('한눈에 보는 절세 효과',X+24,yy+40);
+      const t='3년간 약 ',a=txWon(tx.tot);let fs=46;c.font=rpF(700,fs);while(fs>34&&c.measureText(t+a).width>W-48){fs-=2;c.font=rpF(700,fs);}
+      c.fillStyle=RP_TX;c.fillText(t,X+24,yy+98);c.fillStyle=pnCol(tx.tot);c.fillText(a,X+24+c.measureText(t).width,yy+98);yy+=bh+30;}
+    /* 꼭 챙기실 일 — 문의 상자와 겹치면 개수를 줄임 */
+    if(top.length){const items=top.map(x=>{const[lb,col]=RP_LV[x.lv];c.font=rpF(600,18);const bw=c.measureText(lb).width+26;c.font=rpF(600,25);
+        const T=rpWrapBal(c,x.sec?rpScr(x.t):x.t,W-bw-14);return{x,lb,col,bw,T,h:Math.max(1,T.length)*36+26};});
+      let n=items.length;const need=k=>48+items.slice(0,k).reduce((a,b)=>a+b.h,0);while(n>1&&yy+need(n)>yC-12)n--;
+      c.font=rpF(700,26);c.fillStyle=RP_TX;c.fillText('꼭 챙기실 일',X,yy+28);yy+=48;
+      items.slice(0,n).forEach((o,i)=>{const ty=yy+14;c.font=rpF(600,18);c.fillStyle=o.col;rpRound(c,X,ty,o.bw,32,16);c.fill();c.fillStyle='#fff';c.fillText(o.lb,X+13,ty+22);
+        const tx0=X+o.bw+14;if(o.x.sec){const tw=Math.min(W-o.bw-14,Math.max(...o.T.map(t=>(c.font=rpF(600,25),c.measureText(t).width))));
+          rpBlur(c,tx0,ty,tw,o.T.length*36,g=>{g.font=rpF(600,25);g.fillStyle=RP_TX;rpText(g,o.T,0,25,36);});rpLock(c,tx0+Math.max(tw,140)/2,ty+o.T.length*18,1);}
+        else{c.font=rpF(600,25);c.fillStyle=RP_TX;rpText(c,o.T,tx0,ty+25,36);}
+        yy+=o.h;if(i<n-1){c.fillStyle='#E8EDF0';c.fillRect(X,yy,W,1);}});}
+    /* 문의 */
+    if(cH){c.fillStyle='#F4F7F8';rpRound(c,X,yC,W,cH,16);c.fill();let cy=yC+30;c.font=rpF(700,20);c.fillStyle=RP_MU;c.fillText('문의',X+24,cy+6);cy+=28;
+      c.font=rpF(700,26);c.fillStyle=RP_TX;rpText(c,CO,X+24,cy+26,36);cy+=CO.length*36;
+      if(tel){c.font=rpF(800,38);c.fillStyle=RP_ACC;c.fillText(tel,X+24,cy+46);}}}};}
+function rpTaxM(B,tx,txSec,foot){ // 한눈에 보는 절세 효과: ① 3년 금액·계산식 ② 해마다 가로 막대 + 항목표 + 근거
+  const rows=tx.items,y1=tx.Y[0],X=RP_X+24,W=RP_CW-48,box=(c,y,h)=>{c.fillStyle='#FFFFFF';c.strokeStyle=RP_ACC;c.lineWidth=3;rpRound(c,RP_X,y,RP_CW,h,16);c.fill();c.stroke();};
+  const segA=[[tx.th?'올해 예상  ':'1년차 기준  ',500,24,RP_MU],[txWon(tx.T0),500,26,RP_TX],['  −  ',500,26,RP_MU],[txWon(y1.save),700,26,pnCol(y1.save)]],segB=[['  =  ',500,26,RP_MU]],ft=txWon(y1.fin);
+  const wOf=(c,a)=>a.reduce((s,[t,w,z])=>(c.font=rpF(w,z),s+c.measureText(t).width),0);
+  B.push({h(c){c.font=rpF(800,30);this.one=wOf(c,segA)+wOf(c,segB)+c.measureText(ft).width+8<=W;this.hh=192+(this.one?0:52);return this.hh+20;},draw(c,y){
+    box(c,y,this.hh);c.font=rpF(700,22);c.fillStyle=RP_ACC;c.fillText('한눈에 보는 절세 효과',X,y+48);
+    {const t1='3년간 약 ',a=txWon(tx.tot);let fs=46;c.font=rpF(700,fs);while(fs>34&&c.measureText(t1+a).width>W){fs-=2;c.font=rpF(700,fs);}
+      c.fillStyle=RP_TX;c.fillText(t1,X,y+110);c.fillStyle=pnCol(tx.tot);c.fillText(a,X+c.measureText(t1).width,y+110);}
+    {let xx=X,yb=y+160;const seg=([t,w,sz,col])=>{c.font=rpF(w,sz);c.fillStyle=col;c.fillText(t,xx,yb);xx+=c.measureText(t).width;};
+      segA.forEach(seg);if(!this.one){xx=X;yb+=52;seg(['=  ',500,26,RP_MU]);}else segB.forEach(seg);
+      c.font=rpF(800,30);const fw=c.measureText(ft).width;c.fillStyle='#E4F0EB';rpRound(c,xx-8,yb-32,fw+16,44,8);c.fill();seg([ft,800,30,RP_ACC]);}}});
+  const legend=[[tx.th?'예상 세액':'지금','#C9D3D9'],['관리 후',RP_ACC]],RH=106,c1=X+W-136,R2=(g,t,x,yb)=>g.fillText(t,x-g.measureText(t).width,yb);
+  B.push({h(c){c.font=rpF(500,22);this.NL=rows.map(([k])=>rpWrap(c,k,c1-110-X-12));this.RH=this.NL.map(L=>L.length<2?48:L.length*30+18);
+    c.font=rpF(400,19);this.F=rpWrap(c,foot,W);this.bars=72+tx.Y.length*RH-RH+92+20;this.hh=this.bars+14+50+this.RH.reduce((a,b)=>a+b,0)+16+this.F.length*30+16;return this.hh+28;},draw(c,y){
+    box(c,y,this.hh);let yy=y+26;
+    c.font=rpF(500,19);legend.forEach(([t,col],i)=>{const lx=X+i*150;c.fillStyle=col;rpRound(c,lx,yy,20,20,4);c.fill();c.fillStyle=RP_MU;c.fillText(t,lx+28,yy+17);});yy+=46;
+    const L=W-130;tx.Y.forEach((yr,i)=>{if(i){c.fillStyle='#E8EDF0';c.fillRect(X,yy-10,W,1);}
+      c.font=rpF(600,21);c.fillStyle=RP_TX;c.fillText(txYL(tx.th,i),X,yy+22);c.font=rpF(700,19);c.fillStyle=pnCol(yr.save);const sv='−'+txWon(yr.save).replace(' 원','');c.fillText(sv,X+W-c.measureText(sv).width,yy+22);
+      [[tx.T0,'#C9D3D9',0],[yr.fin,RP_ACC,1]].forEach(([v,col,j])=>{const by=yy+36+j*30,bl=Math.max(2,v/tx.T0*L);c.fillStyle=col;rpRound(c,X,by,bl,22,5);c.fill();
+        c.font=rpF(j?700:500,19);c.fillStyle=j?RP_ACC:RP_MU;c.fillText(txWon(v).replace(' 원',''),X+bl+10,by+18);});
+      yy+=RH;});
+    yy=y+this.bars;c.fillStyle=RP_LN;c.fillRect(X,yy,W,2);yy+=14;
+    c.font=rpF(600,20);c.fillStyle=RP_MU;c.fillText('항목',X,yy+30);R2(c,txYL(tx.th,0),c1,yy+30);R2(c,'3년 합계',X+W,yy+30);yy+=50;
+    const NL=this.NL,RHs=this.RH,tbl=(g,ox,oy,sc)=>{let ty=oy;rows.forEach(([k,a],i)=>{const S=v=>sc?rpScr(v):v,h=RHs[i],vb=ty+h/2+8;
+      if(i%2===0){g.fillStyle='#F4F7F8';g.fillRect(ox-12,ty-4,W+24,h);}g.font=rpF(500,22);g.fillStyle=RP_TX;
+      const NLi=sc?rpWrap(g,S(k),c1-110-X-12).slice(0,NL[i].length):NL[i];rpText(g,NLi,ox,vb-(NLi.length-1)*15,30);
+      g.font=rpF(500,22);g.fillStyle=a[0]>=0.5?pnCol(a[0]):RP_MU;R2(g,a[0]>=0.5?S(txWon(a[0])):'-',ox+c1-X,vb);g.font=rpF(700,22);g.fillStyle=pnCol(a[0]+a[1]+a[2]);R2(g,S(txWon(a[0]+a[1]+a[2])),ox+W,vb);ty+=h;});};
+    const th=RHs.reduce((a,b)=>a+b,0);
+    if(txSec){rpBlur(c,X-12,yy-4,W+24,th,g=>tbl(g,12,4,1));rpLock(c,X+W/2,yy-4+th/2);}else tbl(c,X,yy,0);yy+=th;
+    c.font=rpF(400,19);c.fillStyle=RP_MU;rpText(c,this.F,X,yy+40,30);}});}
+function rpWbM(w,wbSec,dif,pf,note){ // 여성기업 이자 비교: 5칸 표 → 항목마다 [없을 때 · 확인서 · 차이] 세 칸
+  const X=RP_X+24,W=RP_CW-48,cw=W/3,hd=['확인서 없을 때','여성기업 확인서','차이'];
+  const M=[['금리',pf(w.A.pct),pf(w.B.pct),'−'+pf(w.cut).replace('%','%p')],['거치기간 월 이자',wonF(w.A.m),wonF(w.B.m),'−'+wonF(dif.m)],
+    ['상환 첫 달 납부액',wonF(w.A.first),wonF(w.B.first),'−'+wonF(dif.first)],['5년 총 이자',wonF(w.A.tot),wonF(w.B.tot),'−'+wonF(dif.tot)]],RH=72;
+  const t0=wbSec?'정책자금 대출 이자 줄이는 방법':'여성기업 확인서로 줄어드는 대출 이자',lead=`정책자금 ${txWon(w.amt)} 대출 시 5년간 이자 `,amt=wonF(dif.tot)+' 절감';
+  return{h(c){c.font=rpF(700,22);this.T=rpWrapBal(c,t0,W);c.font=rpF(500,24);const lw=c.measureText(lead).width;c.font=rpF(800,28);this.one=lw+c.measureText(amt).width<=W;
+    c.font=rpF(500,24);this.Ld=this.one?[lead]:rpWrap(c,lead.trim(),W);c.font=rpF(400,19);this.F=rpWrap(c,note,W);
+    this.top=24+this.T.length*32+14+this.Ld.length*36+(this.one?0:40)+12;this.hh=this.top+44+M.length*RH+12+this.F.length*30+18;
+    this.cuts=[this.top-6,...(this.F.length>=2?[this.top+44+M.length*RH+6]:[])];return this.hh+28;},
+    ext(c,y0,y1){c.fillStyle=RP_LN;c.fillRect(RP_X-1,y0,2,y1-y0);c.fillRect(RP_X+RP_CW-1,y0,2,y1-y0);},draw(c,y){
+    const h=this.hh;c.fillStyle='#FFFFFF';c.strokeStyle=RP_LN;c.lineWidth=2;rpRound(c,RP_X,y,RP_CW,h,16);c.fill();c.stroke();
+    c.font=rpF(700,22);c.fillStyle=RP_ACC;rpText(c,this.T,X,y+48,32);let yy=y+24+this.T.length*32+14;
+    c.font=rpF(500,24);c.fillStyle=RP_TX;rpText(c,this.Ld,X,yy+30,36);
+    if(this.one){const x2=X+c.measureText(lead).width;c.font=rpF(800,28);c.fillStyle=pnCol(dif.tot);c.fillText(amt,x2,yy+30);}
+    else{c.font=rpF(800,28);c.fillStyle=pnCol(dif.tot);c.fillText(amt,X,yy+this.Ld.length*36+34);}
+    yy=y+this.top;c.font=rpF(600,19);c.fillStyle=RP_MU;hd.forEach((t,j)=>c.fillText(t,X+(j+1)*cw-12-c.measureText(t).width,yy+30));yy+=44;
+    const tbl=(g,ox,oy,sc)=>{let ty=oy;const S=t=>sc?rpScr(t):t,dx=ox-X;M.forEach((r,i)=>{if(i){g.fillStyle='#E8EDF0';g.fillRect(ox-12,ty,W+24,1);}
+      g.font=rpF(600,19);g.fillStyle=RP_MU;g.fillText(S(r[0]),ox,ty+26);
+      [['#F4F7F8',1],['#E4F0EB',2]].forEach(([bg,j])=>{g.fillStyle=bg;g.fillRect(X+j*cw+4+dx,ty+34,cw-4,32);});
+      r.slice(1).forEach((t,j)=>{const tt=S(t);g.font=rpF(j?700:500,21);g.fillStyle=j===0?RP_MU:j===1?RP_TX:pnCol(dif.tot);g.fillText(tt,X+(j+1)*cw-12-g.measureText(tt).width+dx,ty+57);});ty+=RH;});};
+    if(wbSec){rpBlur(c,X-12,yy,W+24,RH*M.length,g=>tbl(g,12,0,1));rpLock(c,X+W/2,yy+RH*M.length/2);}else tbl(c,X,yy,0);yy+=RH*M.length;
+    c.font=rpF(400,19);c.fillStyle=RP_MU;rpText(c,this.F,X,yy+36,30);}};}
+function rpActM(a,kn){ // 챙겨 드릴 일 한 줄: 배지 + 제목(줄바꿈) + 금액(안 들어가면 다음 줄 오른쪽). kn: 마지막 줄과 붙임
+  return{kn,h(c){const col=0;c.font=rpF(600,18);this.bw=c.measureText(a.lb).width+24;const tw=RP_CW-this.bw-16;c.font=rpF(700,23);this.rw=a.r?c.measureText(a.r).width:0;
+    c.font=rpF(500,24);const t=a.sec?rpScr(a.t):a.t;this.one=!a.r||c.measureText(t).width+this.rw+20<=tw;this.T=this.one?[t]:rpWrapBal(c,t,tw);
+    this.hh=16+this.T.length*36+(this.one?0:34)+8;return this.hh;},draw(c,y){const col=a.lb==='절세'?RP_ACC:RP_LV[a.lv][1],x1=RP_X+this.bw+16;
+    c.font=rpF(600,18);c.fillStyle=col;rpRound(c,RP_X,y+12,this.bw,30,15);c.fill();c.fillStyle='#fff';c.fillText(a.lb,RP_X+12,y+33);
+    if(a.sec){c.font=rpF(500,24);const tw=Math.min(RP_CW-this.bw-16,Math.max(...this.T.map(t=>c.measureText(t).width)));
+      rpBlur(c,x1,y+10,tw,this.T.length*36,g=>{g.font=rpF(500,24);g.fillStyle=RP_TX;rpText(g,this.T,0,26,36);});rpLock(c,x1+Math.max(tw,140)/2,y+10+this.T.length*18,1);}
+    else{c.font=rpF(500,24);c.fillStyle=RP_TX;rpText(c,this.T,x1,y+36,36);}
+    if(a.r){c.font=rpF(700,23);c.fillStyle=RP_UP;c.fillText(a.r,RP_X+RP_CW-this.rw,this.one?y+36:y+36+this.T.length*36);}
+    c.fillStyle='#E8EDF0';c.fillRect(RP_X,y+this.hh-2,RP_CW,1);}};}
+function rpFactM(k,v,i,kn){ // 사업 현황 한 줄: 항목명 칸을 좁히고(두 줄까지) 내용 칸을 넓힘
+  const KW=134,VX=166;return{kn,h(c){ // kn: 끝에서 둘째 줄은 마지막 줄과 붙임(마지막 줄 혼자 다음 쪽으로 안 가게)
+  c.font=rpF(600,22);this.K=rpWrapBal(c,k,KW);c.font=rpF(400,24);this.L=rpWrap(c,v,RP_CW-VX-14);
+    this.hh=Math.max(this.K.length*30+34,this.L.length*36+28);return this.hh;},draw(c,y){
+    if(i%2===0){c.fillStyle='#F4F7F8';c.fillRect(RP_X,y,RP_CW,this.hh);}
+    c.font=rpF(600,22);c.fillStyle=RP_MU;rpText(c,this.K,RP_X+16,y+40,30);c.font=rpF(400,24);c.fillStyle=RP_TX;rpText(c,this.L,RP_X+VX,y+40,36);}};}
+function rpJoinWrap(c,parts,sep,maxW){const out=[];let line=''; // '사무소 · 이름 · 전화'를 항목 단위로 줄바꿈(줄 끝에 · 가 남지 않게)
+  parts.forEach(p=>{const t=line?line+sep+p:p;if(!line||c.measureText(t).width<=maxW)line=t;else{out.push(line);line=p;}});if(line)out.push(line);
+  return out.flatMap(l=>c.measureText(l).width>maxW?rpWrap(c,l,maxW):[l]);}
+function rpCardCuts(o){ // 검토 의견 카드를 나눌 수 있는 자리(카드 위에서부터 거리). 문단 안에서는 앞뒤로 두 줄 이상 남김
+  const o0=36+o.T.length*42+12,nN=o.N.length,o1=o0+(nN?nN*37+14:0),nB=o.Bd.length,o2=o1+(nB?nB*36+18:4),nA=o.A.length,P=[];
+  const para=(st,n,lh)=>{for(let j=2;j<=n-2;j++)P.push(st+j*lh+1);};
+  para(o0,nN,37);if(nN&&nB)P.push(o1-6);para(o1,nB,36); // '→ 저희가 할 일'은 앞 설명 두 줄 이상과 함께 넘어감(혼자 떨어지지 않게)
+  if(o.hh<400)return[]; // 짧은 카드는 나누지 않고 다음 쪽으로
+  const lo=nN>=2?o0+2*37:o1+2*36,hiRest=2*36+30; // 첫 부분: 제목 + 두 줄 이상(현황 한 줄뿐이면 설명도 두 줄) / 남는 부분: 두 줄 이상
+  return P.filter(k=>k>=lo&&o.hh-k>=hiRest).sort((a,b)=>a-b);}
+function rpSplit(b,h,y,c0,page,getC){ // 나눌 수 있는 블록을 쪽 끝에서 잘라 다음 쪽에 이어 그림
+  let off=0,c=c0;const PAD=b.ext?16:0,clipDraw=(a,z,yy)=>{c.save();c.beginPath();c.rect(0,yy+a,RP_W,z-a);c.clip();b.draw(c,yy);c.restore();};
+  for(let guard=0;guard<20;guard++){const room=RP_BOT-y,rest=h-off;
+    if(rest<=room){clipDraw(off,h,y-off);return y+rest;}
+    const cs=b.cuts.filter(k=>k>off&&k-off<=room);
+    if(cs.length&&(off>0||room>=200)){const k=cs[cs.length-1];clipDraw(off,k,y-off);if(PAD)b.ext(c,y-off+k,y-off+k+PAD);
+      page();c=getC();if(PAD)b.ext(c,RP_TOP,RP_TOP+PAD);off=k;y=RP_TOP+PAD;continue;}
+    if(y>RP_TOP){page();c=getC();y=RP_TOP;continue;}
+    clipDraw(off,h,y-off);return y+rest;} // 한 쪽보다 길고 나눌 자리도 없으면 그대로(넘침)
+  return y;}
+function rpPaintM(l){rpMode('mob');try{return rpPaint(l);}finally{rpMode('a4');}}
 function rpPaint(l){
   const{B,iss,office}=rpBlocks(l),pages=[];let c,y;
-  const page=()=>{const cv=document.createElement('canvas');cv.width=RP_W;cv.height=RP_H;c=cv.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,RP_W,RP_H);pages.push(cv);y=RP_TOP;};
+  const page=()=>{const cv=document.createElement('canvas');cv.width=Math.round(RP_W*RP_S);cv.height=Math.round(RP_H*RP_S);c=cv.getContext('2d');if(RP_S!==1)c.setTransform(RP_S,0,0,RP_S,0,0);c.fillStyle='#fff';c.fillRect(0,0,RP_W,RP_H);pages.push(cv);y=RP_TOP;};
   page();
   B.forEach((b,i)=>{let h=b.h(c);
     if(b.brk){if(pages.length===1&&y>RP_TOP)page();return;}
     if(b.pg){if(y>RP_TOP)page();return;} // 새 쪽에서 시작 // 요약이 첫 장에 다 들어갔을 때만 쪽 나눔
     if(b.gap){if(y===RP_TOP)return;if(y+h>RP_BOT){page();return;}y+=h;return;}
-    let need=h;if(b.head&&B[i+1]&&!B[i+1].gap){need+=B[i+1].h(c); // 제목만 페이지 끝에 남지 않게
-      if(b.keep){let all=h;for(let k=1;k<=b.keep&&B[i+k];k++)all+=B[i+k].h(c);if(all<=RP_BOT-RP_TOP)need=all;}} // 사업 현황 표는 쪼개지지 않게
+    let need=h;if(b.head&&B[i+1]&&!B[i+1].gap){{const nb=B[i+1],nh=nb.h(c);need+=nb.cuts&&nb.cuts.length?nb.cuts[0]:nh;if(nb.kn&&B[i+2])need+=B[i+2].h(c);} // 제목만 페이지 끝에 남지 않게
+      if(b.keep){let all=h;for(let k=1;k<=b.keep&&B[i+k];k++)all+=B[i+k].h(c);if(all<=RP_BOT-RP_TOP)need=all;
+        else if(RP_MOB){let n3=h;for(let k=1;k<=Math.min(3,b.keep)&&B[i+k];k++)n3+=B[i+k].h(c);need=n3;}}} // 사업 현황 표는 쪼개지지 않게
+    if(b.kn&&B[i+1]){const chain=j=>{const bb=B[j];if(!bb)return 0;const n=bb.h(c);return bb.gap||bb.kn?n+chain(j+1):n;}; // 휴대폰용: 소제목·끝줄이 혼자 남지 않게(뒤에 붙은 것까지 이어서)
+      const all=h+chain(i+1);need=all<=RP_BOT-RP_TOP?Math.max(need,all):Math.max(need,h+B[i+1].h(c));}
+    if(RP_MOB&&b.cuts&&y+h>RP_BOT){y=rpSplit(b,h,y,c,page,()=>c);return;} // 휴대폰용: 긴 카드는 줄 사이에서 다음 쪽으로 이어짐
     if(y+need>RP_BOT&&y>RP_TOP){page();h=b.h(c);}
     b.draw(c,y);y+=h;});
-  pages.forEach((cv,i)=>{const g=cv.getContext('2d');g.fillStyle=RP_LN;g.fillRect(RP_X,RP_H-92,RP_CW,1);g.font=rpF(400,19);g.fillStyle='#8A96A0';
-    g.fillText((office?office+'  ·  ':'')+'사전 검토보고서',RP_X,RP_H-56);const pn=`${i+1} / ${pages.length}`;g.fillText(pn,RP_W-RP_X-g.measureText(pn).width,RP_H-56);});
+  const FY=RP_MOB?[RP_H-62,RP_H-30,17]:[RP_H-92,RP_H-56,19];
+  pages.forEach((cv,i)=>{const g=cv.getContext('2d');g.fillStyle=RP_LN;g.fillRect(RP_X,FY[0],RP_CW,1);g.font=rpF(400,FY[2]);g.fillStyle='#8A96A0';
+    g.fillText((office?office+'  ·  ':'')+'사전 검토보고서',RP_X,FY[1]);const pn=`${i+1} / ${pages.length}`;g.fillText(pn,RP_W-RP_X-g.measureText(pn).width,FY[1]);});
   return{pages,iss};
 }
 /* ----- JPEG 페이지 → PDF (라이브러리 없이 직접 조립) ----- */
-async function rpPdf(pages,title){
+async function rpPdf(pages,title,pt){const[PW,PH]=pt||[595.28,841.89]; // pt: 쪽 크기(포인트). 없으면 A4
   const enc=new TextEncoder(),parts=[],offs=[];let len=0;
   const put=x=>{const b=typeof x==='string'?enc.encode(x):x;parts.push(b);len+=b.length;};
   const jpg=cv=>new Promise((res,rej)=>cv.toBlob(b=>b?b.arrayBuffer().then(a=>res(new Uint8Array(a)),rej):rej(new Error('jpeg')),'image/jpeg',0.86));
@@ -2777,8 +2934,8 @@ async function rpPdf(pages,title){
   obj(1,'<< /Type /Catalog /Pages 2 0 R >>');
   obj(2,`<< /Type /Pages /Count ${n} /Kids [${pages.map((_,i)=>`${3+i*3} 0 R`).join(' ')}] >>`);
   for(let i=0;i<n;i++){
-    const p=3+i*3,cs=`q 595.28 0 0 841.89 0 0 cm /Im0 Do Q`,img=await jpg(pages[i]);
-    obj(p,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ${p+2} 0 R >> >> /Contents ${p+1} 0 R >>`);
+    const p=3+i*3,cs=`q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`,img=await jpg(pages[i]);
+    obj(p,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${p+2} 0 R >> >> /Contents ${p+1} 0 R >>`);
     obj(p+1,`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`);
     offs[p+2]=len;put(`${p+2} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pages[i].width} /Height ${pages[i].height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.length} >>\nstream\n`);put(img);put('\nendstream\nendobj\n');
   }
@@ -2787,7 +2944,7 @@ async function rpPdf(pages,title){
   put(x+`trailer\n<< /Size ${total+1} /Root 1 0 R /Info ${total} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(parts,{type:'application/pdf'});
 }
-function rpName(){const d=disp(cur);return `${(d.company||'업체').replace(/[\\/:*?"<>|\s]+/g,'_')}_사전검토보고서_${(d.visitDate||today()).replace(/-/g,'')}.pdf`;}
+function rpName(mob){const d=disp(cur);return `${(d.company||'업체').replace(/[\\/:*?"<>|\s]+/g,'_')}_사전검토보고서_${(d.visitDate||today()).replace(/-/g,'')}${mob?'_휴대폰용':''}.pdf`;}
 async function rpFonts(){try{await Promise.race([Promise.all([400,500,600,700].map(w=>document.fonts.load(rpF(w,24),'가'))),new Promise(r=>setTimeout(r,1500))]);}catch{}}
 /* ----- 화면 ----- */
 async function openReport(from){
@@ -2815,8 +2972,13 @@ function rpRefresh(){
   $('#rpInfo').textContent=`A4 ${pages.length}쪽`;
   const title=(disp(cur).company||'')+' 사전 검토보고서';
   rpCache={seq,p:rpPdf(pages,title)};rpCache.p.catch(()=>{});
+  rpCacheM=null;clearTimeout(rpTM);rpTM=setTimeout(()=>{if(seq===rpSeq&&cur&&!$('#view-report').hidden)rpBuildM();},400); // 카톡용은 버튼 누르기 전에 미리
 }
 async function rpBlob(){if(!rpCache)rpRefresh();return rpCache.p;}
+function rpBuildM(){const seq=rpSeq,{pages}=rpPaintM(cur),a4=$('#rpInfo').textContent.split(' · ')[0];
+  rpCacheM={seq,p:rpPdf(pages,(disp(cur).company||'')+' 사전 검토보고서',RP_MOB_PT)};rpCacheM.p.catch(()=>{});
+  $('#rpInfo').textContent=`${a4} · 카톡용 ${pages.length}쪽`;return rpCacheM;}
+async function rpBlobM(){if(!rpCacheM||rpCacheM.seq!==rpSeq){if(!rpCache)rpRefresh();clearTimeout(rpTM);rpBuildM();}return rpCacheM.p;}
 $('#rpIss').addEventListener('click',e=>{const ib=e.target.closest('[data-imp]');
   if(ib&&cur){const st=rpState(cur),k=ib.dataset.imp;st.imp=st.imp||{};if(st.imp[k])delete st.imp[k];else st.imp[k]=true;markDirty('log');rpRefresh();return;}
   const sb=e.target.closest('[data-sid]');
@@ -2826,11 +2988,11 @@ $('#rpIss').addEventListener('click',e=>{const ib=e.target.closest('[data-imp]')
   const b=e.target.closest('[data-rid]');if(!b||!cur)return;const st=rpState(cur),k=b.dataset.rid;
   if(st.ex[k])delete st.ex[k];else st.ex[k]=true;markDirty('log');rpRefresh();});
 $('#rpLv').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!cur)return;rpState(cur).brief=b.dataset.v==='brief';markDirty('log');rpRefresh();});
-$('#rpBack').addEventListener('click',async()=>{clearTimeout(rpT);await flush();
+$('#rpBack').addEventListener('click',async()=>{clearTimeout(rpT);clearTimeout(rpTM);await flush();
   if(reportFrom==='sheet'&&note){show('sheet');refreshSteps();}else{renderDetail();show('detail');}});
 $('#rpSave').addEventListener('click',async()=>{try{const b=await rpBlob();downloadFile(rpName(),b,'application/pdf');toast('PDF를 저장했어요.');}catch{toast('PDF를 만들지 못했어요.');}});
 $('#rpShare').addEventListener('click',async()=>{
-  let f;try{f=new File([await rpBlob()],rpName(),{type:'application/pdf'});}catch{toast('PDF를 만들지 못했어요.');return;}
+  let f;try{f=new File([await rpBlobM()],rpName(1),{type:'application/pdf'});}catch{toast('PDF를 만들지 못했어요.');return;}
   if(navigator.canShare&&navigator.canShare({files:[f]})){
     try{await navigator.share({files:[f],title:f.name});}
     catch(e){if(e&&e.name==='AbortError')return;toast('공유 창을 열지 못했어요. PDF 저장 후 카카오톡에서 파일로 보내 주세요.');}
