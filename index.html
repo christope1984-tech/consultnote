@@ -2853,9 +2853,7 @@ function rpCoverM({d,iss,tx,office,writer,tel}){ // 1쪽: 표지 겸 핵심 요�
     c.font=rpF(500,28);c.fillStyle=RP_TX;const L2=rpWrapBal(c,(d.ceo?d.ceo+' 대표님':'대표님')+' 귀하',W);rpText(c,L2,X,yy+(d.company?48:64),40);yy+=(d.company?48:64)+(L2.length-1)*40;
     c.font=rpF(400,20);c.fillStyle=RP_MU;const L3=[...rpWrap(c,'상담일 '+rpDate(d.visitDate),W),...(writer?rpWrap(c,'작성 '+[office,writer].filter(Boolean).join(' '),W):[])];
     rpText(c,L3,X,yy+44,30);yy+=44+(L3.length-1)*30+28;c.fillStyle=RP_LN;c.fillRect(X,yy,W,2);yy+=28;
-    /* 문의 상자(아래에 고정) 높이 먼저 */
-    c.font=rpF(700,26);const CO=office||writer?rpJoinWrap(c,[office,writer].filter(Boolean),'  ·  ',W-48):[];const cH=writer||tel||office?30+28+CO.length*36+(tel?54:0)+18:0;
-    const yC=RP_BOT-cH;
+    const yC=RP_BOT; // 1쪽 문의 상자 없앰(연락처는 마지막 쪽 맺음 상자에만)
     /* 3년 절세 */
     if(tx&&tx.tot>=1){const bh=126;c.fillStyle='#fff';c.strokeStyle=RP_ACC;c.lineWidth=3;rpRound(c,X,yy,W,bh,16);c.fill();c.stroke();
       c.font=rpF(700,20);c.fillStyle=RP_ACC;c.fillText('한눈에 보는 절세 효과',X+24,yy+40);
@@ -2871,10 +2869,7 @@ function rpCoverM({d,iss,tx,office,writer,tel}){ // 1쪽: 표지 겸 핵심 요�
           rpBlur(c,tx0,ty,tw,o.T.length*36,g=>{g.font=rpF(600,25);g.fillStyle=RP_TX;rpText(g,o.T,0,25,36);});rpLock(c,tx0+Math.max(tw,140)/2,ty+o.T.length*18,1);}
         else{c.font=rpF(600,25);c.fillStyle=RP_TX;rpText(c,o.T,tx0,ty+25,36);}
         yy+=o.h;if(i<n-1){c.fillStyle='#E8EDF0';c.fillRect(X,yy,W,1);}});}
-    /* 문의 */
-    if(cH){c.fillStyle='#F4F7F8';rpRound(c,X,yC,W,cH,16);c.fill();let cy=yC+30;c.font=rpF(700,20);c.fillStyle=RP_MU;c.fillText('문의',X+24,cy+6);cy+=28;
-      c.font=rpF(700,26);c.fillStyle=RP_TX;rpText(c,CO,X+24,cy+26,36);cy+=CO.length*36;
-      if(tel){c.font=rpF(800,38);c.fillStyle=RP_ACC;c.fillText(tel,X+24,cy+46);}}}};}
+}};}
 function rpTaxM(B,tx,txSec,foot){ // 한눈에 보는 절세 효과: ① 3년 금액·계산식 ② 해마다 가로 막대 + 항목표 + 근거
   const rows=tx.items,y1=tx.Y[0],X=RP_X+24,W=RP_CW-48,box=(c,y,h)=>{c.fillStyle='#FFFFFF';c.strokeStyle=RP_ACC;c.lineWidth=3;rpRound(c,RP_X,y,RP_CW,h,16);c.fill();c.stroke();};
   const segA=[[tx.th?'올해 예상  ':'1년차 기준  ',500,24,RP_MU],[txWon(tx.T0),500,26,RP_TX],['  −  ',500,26,RP_MU],[txWon(y1.save),700,26,pnCol(y1.save)]],segB=[['  =  ',500,26,RP_MU]],ft=txWon(y1.fin);
